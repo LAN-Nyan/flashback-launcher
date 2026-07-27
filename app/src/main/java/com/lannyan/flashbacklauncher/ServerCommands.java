@@ -1,3 +1,4 @@
+package com.lannyan.flashbacklauncher;
 import java.io.File;
 import java.util.Scanner;
 import com.google.gson.Gson;

@@ -1,3 +1,4 @@
+package com.lannyan.flashbacklauncher;
 import java.util.Scanner;
 /*
 Server backend script
