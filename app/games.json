@@ -2,11 +2,11 @@
   "games": [
     {
       "console": "GC",
-      "commonName": "Luigi's Mansion",
+      "commonName": "Luigi\u0027s Mansion",
       "gameName": "GLMP01",
       "gameRegion": "NA",
       "fileLocation": "PATH/TO/FILE/ON/SERVER/DISK",
-      "preferredMetadataProvider": "GAMETDB",
+      "preferredMetadataProvider": "STEAMGRIDDB",
       "rating": 8.1,
       "date": "2002-05-03",
       "fileSize": 1536000000,
@@ -15,7 +15,10 @@
       "disk": "PATH/TO/IMG",
       "language": "en_US",
       "emulator": "dolphin-emu",
-      "descriptionTxt": "PATH/TO/DESCRIPTION.TXT"
+      "descriptionTxt": "PATH/TO/DESCRIPTION.TXT",
+      "providerIds": {
+        "STEAMGRIDDB": "38627"
+      }
     }
   ]
 }
