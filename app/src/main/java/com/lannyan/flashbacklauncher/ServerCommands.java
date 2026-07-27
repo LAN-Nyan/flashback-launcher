@@ -29,6 +29,7 @@ public class ServerCommands {
             System.out.println("An error has occured during startup: " + errorMessage);
         }
     }
+
         // Load file list, and different consoles/types (eg. EXE vs. ISO, or .gba/.bin)
     public static void loadFiles(ServerConfig config) {
         File gamesRoot = new File(config.gamesDirectory);
@@ -58,13 +59,16 @@ public class ServerCommands {
         }
 
         // Load gamelist and metadata
+
     public static void loadMeta() {
         System.out.println("Game metadata loaded successfully!");
     }
+
         // Load the https/credentials
     public static void loadCreds() {
         System.out.println("HTTPS credentials loaded successfully!");
     }
+
         // Load config.json (i think that'll work in Java)
     public static ServerConfig loadOptions() {
         Gson gson = new Gson();
@@ -77,6 +81,7 @@ public class ServerCommands {
             return null;
         }
     }
+
         // Handle custom startup options (eg. RAM allocation, IPv6, etc.)
     public static void loadStartupSettings() {
         System.out.println("Startup flags loaded successfully!");

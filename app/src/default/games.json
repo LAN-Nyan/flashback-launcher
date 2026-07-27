@@ -1,0 +1,21 @@
+{
+  "games": [
+    {
+      "console": "GC",
+      "commonName": "Luigi's Mansion",
+      "gameName": "GLMP01",
+      "gameRegion": "NA",
+      "fileLocation": "PATH/TO/FILE/ON/SERVER/DISK",
+      "preferredMetadataProvider": "GAMETDB",
+      "rating": 8.1,
+      "date": "2002-05-03",
+      "fileSize": 1536000000,
+      "banner": "PATH/TO/IMG",
+      "coverArt": "PATH/TO/IMG",
+      "disk": "PATH/TO/IMG",
+      "language": "en_US",
+      "emulator": "dolphin-emu",
+      "descriptionTxt": "PATH/TO/DESCRIPTION.TXT"
+    }
+  ]
+}
