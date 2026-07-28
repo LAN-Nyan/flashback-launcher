@@ -5,6 +5,7 @@ import com.lannyan.flashbacklauncher.modules.server.GameLibrary;
 import com.lannyan.flashbacklauncher.modules.server.ServerCommands;
 import com.lannyan.flashbacklauncher.modules.server.AppPaths;
 import java.io.File;
+import java.util.concurrent.Executors;
 import java.io.RandomAccessFile;
 import com.lannyan.flashbacklauncher.modules.server.GameEntry;
 import com.google.gson.Gson;
@@ -124,8 +125,15 @@ public class NetworkManager {
                 server.createContext("/api/client/download", withCors(NetworkManager::handleClientDownload));
                 server.createContext("/api/art", withCors(NetworkManager::handleArtFile));
                 server.createContext("/api/admin/command", withCors(NetworkManager::handleAdminCommand));
+                server.createContext("/api/client/save/upload", withCors(NetworkManager::handleSaveUpload));
+                server.createContext("/api/client/save/download", withCors(NetworkManager::handleSaveDownload));
 
-        server.setExecutor(null); // Default single-thread/inline executor
+         int poolSize = (config.threadPoolSize != null && config.threadPoolSize > 0)
+                   ? config.threadPoolSize
+                 : Runtime.getRuntime().availableProcessors();
+
+        server.setExecutor(Executors.newFixedThreadPool(poolSize));
+        System.out.println("Using thread pool size: " + poolSize);
         server.start();
 
         log("INFO", "Admin panel web server started on port " + config.port);
@@ -660,5 +668,75 @@ public class NetworkManager {
         AdminCommandManager.AdminCommandResult result = AdminCommandManager.execute(command, config, params);
 
         writeJson(exchange, result);
+    }
+    private static void handleSaveUpload(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
+
+        String query = exchange.getRequestURI().getQuery();
+        String clientId = parseQueryParam(query, "clientId");
+        String token = parseQueryParam(query, "token");
+        String gameLocation = parseQueryParam(query, "gameLocation");
+
+        if (!authenticateClient(clientId, token)) {
+            exchange.sendResponseHeaders(401, -1);
+            exchange.close();
+            return;
+        }
+
+        GameEntry game = findGameByLocation(gameLocation);
+        if (game == null) {
+            writeJsonError(exchange, "Unknown game.");
+            return;
+        }
+
+        File saveDir = FileManager.getGameDataDir(game, ServerCommands.loadOptions());
+        File saveZip = new File(saveDir, "save.zip");
+
+        try (InputStream in = exchange.getRequestBody();
+             OutputStream out = new FileOutputStream(saveZip)) {
+            in.transferTo(out);
+        }
+
+        log("INFO", "Save uploaded for " + game.commonName + " by " + clientId);
+        writeJson(exchange, Map.of("success", true, "message", "Save uploaded."));
+    }
+
+    private static void handleSaveDownload(HttpExchange exchange) throws IOException {
+        String query = exchange.getRequestURI().getQuery();
+        String clientId = parseQueryParam(query, "clientId");
+        String token = parseQueryParam(query, "token");
+        String gameLocation = parseQueryParam(query, "gameLocation");
+
+        if (!authenticateClient(clientId, token)) {
+            exchange.sendResponseHeaders(401, -1);
+            exchange.close();
+            return;
+        }
+
+        GameEntry game = findGameByLocation(gameLocation);
+        if (game == null) {
+            writeJsonError(exchange, "Unknown game.");
+            return;
+        }
+
+        File saveDir = FileManager.getGameDataDir(game, ServerCommands.loadOptions());
+        File saveZip = new File(saveDir, "save.zip");
+
+        if (!saveZip.exists()) {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+            return;
+        }
+
+        streamFileWithRangeSupport(exchange, saveZip); // reuse the same method from the game download endpoint
+    }
+    private static GameEntry findGameByLocation(String location) {
+        if (location == null) return null;
+        List<GameEntry> games = ServerCommands.loadGamesList();
+        return games.stream().filter(g -> location.equals(g.fileLocation)).findFirst().orElse(null);
     }
 }

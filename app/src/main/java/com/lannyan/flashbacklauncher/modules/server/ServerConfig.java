@@ -12,4 +12,5 @@ public class ServerConfig {
     public Map<String, String> apiKeys;
     public String pathToHttpsCredentials;
     public String keystorePassword;
+    public Integer threadPoolSize;
 }
