@@ -1,4 +1,5 @@
-# flashback-launcher
+# flashback-server
+
 A launcher and personal steam for all of your retro gaming needs.
 
 ## Have you ever wanted all your retro games, or ROMs in a single place?
