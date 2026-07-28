@@ -45,7 +45,7 @@ import java.util.stream.Stream;
 public class NetworkManager {
 
     private static final String ADMIN_WEBROOT = "webroot";
-    private static final Map<String, String> connectedClients = new HashMap<>();
+    private static final Map<String, ClientSession> activeSessions = new ConcurrentHashMap<>();
     private static final List<String> logEntries = Collections.synchronizedList(new ArrayList<>());
     private static final DateTimeFormatter LOG_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -373,17 +373,44 @@ public class NetworkManager {
     // Client Connection State Controls
     // ---------------------------------------------------------------
 
-    public static void connectClient(String clientId, String task) {
-        connectedClients.put(clientId, task != null ? task : "Connected");
-        log("INFO", "Client connected: " + clientId + " (" + task + ")");
-        System.out.println("Client connected: " + clientId);
+    public static Object connectClient(String username, String password) {
+        User user = UserManager.authenticate(username, password);
+        if (user == null) {
+            return null; // caller returns 401
+        }
+
+        String clientId = "CLIENT-" + UUID.randomUUID().toString().substring(0, 8);
+        String token = UUID.randomUUID().toString();
+
+        ClientSession session = new ClientSession();
+        session.clientId = clientId;
+        session.username = username;
+        session.token = token;
+        session.lastHeartbeat = System.currentTimeMillis();
+
+        activeSessions.put(clientId, session);
+        log("INFO", "Client connected: " + clientId + " (" + username + ")");
+
+        return session; // handler serializes this to JSON for the response
+    }
+
+    public static boolean authenticateClient(String clientId, String token) {
+        ClientSession session = activeSessions.get(clientId);
+        return session != null && session.token.equals(token);
     }
 
     public static void disConnectClient(String clientId) {
-        connectedClients.remove(clientId);
+        activeSessions.remove(clientId);
         log("INFO", "Client disconnected: " + clientId);
-        System.out.println("Client disconnected: " + clientId);
     }
+
+    public static void heartbeat(String clientId, String token, String status) {
+        if (!authenticateClient(clientId, token)) return;
+        ClientSession session = activeSessions.get(clientId);
+        session.lastHeartbeat = System.currentTimeMillis();
+        // you could store 'status' somewhere visible to the admin dashboard here
+    }
+
     /**
          * Loads/verifies API credentials from the server configuration.
          * Called during startup sequence in ServerCommands.
