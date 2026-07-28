@@ -1,5 +1,5 @@
 package com.lannyan.flashbacklauncher.modules.managers;
-
+import com.lannyan.flashbacklauncher.modules.server.AppPaths;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -15,7 +15,7 @@ public class EmulatorRegistry {
 
     public static void load() {
         Gson gson = new Gson();
-        try (FileReader reader = new FileReader("emulators.json")) {
+        try (FileReader reader = new FileReader(AppPaths.configFile("emulators.json"))) {
             Type mapType = new TypeToken<Map<String, String>>(){}.getType();
             emulatorMap = gson.fromJson(reader, mapType);
             System.out.println("Loaded " + emulatorMap.size() + " emulator mappings from emulators.json");

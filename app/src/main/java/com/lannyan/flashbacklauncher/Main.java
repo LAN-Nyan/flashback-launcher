@@ -18,7 +18,7 @@ public class Main {
         System.out.println("Welcome! Would you like to start the server [Y/N] (default = Y):");
 
         String choice = scanner.nextLine().trim();
-        scanner.close(); // Closed immediately after input
+         // Caused first time setup isues
 
         if (choice.equalsIgnoreCase("Y") || choice.isEmpty()) {
             ServerCommands.startServer();

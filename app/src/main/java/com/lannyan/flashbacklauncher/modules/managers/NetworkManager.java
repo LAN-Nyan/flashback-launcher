@@ -3,12 +3,20 @@ package com.lannyan.flashbacklauncher.modules.managers;
 import com.lannyan.flashbacklauncher.modules.server.ServerConfig;
 import com.lannyan.flashbacklauncher.modules.server.GameLibrary;
 import com.lannyan.flashbacklauncher.modules.server.ServerCommands;
-
+import com.lannyan.flashbacklauncher.modules.server.AppPaths;
+import java.io.File;
+import java.io.RandomAccessFile;
+import com.lannyan.flashbacklauncher.modules.server.GameEntry;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import com.lannyan.flashbacklauncher.modules.server.ClientSession;
+import com.lannyan.flashbacklauncher.modules.server.User;
 
 import com.sun.net.httpserver.HttpsServer;
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -71,7 +79,7 @@ public class NetworkManager {
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            try (FileInputStream fis = new FileInputStream("keystore.p12")) {
+            try (FileInputStream fis = new FileInputStream(AppPaths.configFile("keystore.p12"))) {
                 keyStore.load(fis, config.keystorePassword.toCharArray());
             }
 
@@ -94,27 +102,28 @@ public class NetworkManager {
             return;
         }
 
-        // Seed initial connected client sessions if empty
-        if (connectedClients.isEmpty()) {
-            connectedClients.put("CLIENT-DECK", "Streaming GameCube: Luigi's Mansion [GLMP01]");
-            connectedClients.put("CLIENT-PC01", "Idle - Browsing Library");
-            connectedClients.put("CLIENT-LIVINGROOM", "In-Game: Wind Waker [GZLP01]");
-            log("INFO", "Initialized active client session registry with default connected devices.");
-        }
+        // sorry, had to clean this
 
         // Static file serving for the admin panel UI
-        server.createContext("/", new StaticFileHandler());
+        server.createContext("/", withCors(new StaticFileHandler()));
 
-        // Admin REST API Endpoints
-        server.createContext("/api/status", NetworkManager::handleStatus);
-        server.createContext("/api/games", NetworkManager::handleGames);
-        server.createContext("/api/rescan", NetworkManager::handleRescan);
-        server.createContext("/api/clients", NetworkManager::handleClients);
-        server.createContext("/api/clients/kick", NetworkManager::handleKickClient);
-        server.createContext("/api/config", NetworkManager::handleConfig);
-        server.createContext("/api/logs", NetworkManager::handleLogs);
-        server.createContext("/api/files/read", NetworkManager::handleFileRead);
-        server.createContext("/api/files/save", NetworkManager::handleFileSave);
+                // API Endpoints
+                server.createContext("/api/status", withCors(NetworkManager::handleStatus));
+                server.createContext("/api/admin/login", withCors(NetworkManager::handleAdminLogin));
+                server.createContext("/api/games", withCors(NetworkManager::handleGames));
+                server.createContext("/api/rescan", withCors(NetworkManager::handleRescan));
+                server.createContext("/api/clients", withCors(NetworkManager::handleClients));
+                server.createContext("/api/clients/kick", withCors(NetworkManager::handleKickClient));
+                server.createContext("/api/config", withCors(NetworkManager::handleConfig));
+                server.createContext("/api/logs", withCors(NetworkManager::handleLogs));
+                server.createContext("/api/files/read", withCors(NetworkManager::handleFileRead));
+                server.createContext("/api/files/save", withCors(NetworkManager::handleFileSave));
+                server.createContext("/api/client/connect", withCors(NetworkManager::handleClientConnect));
+                server.createContext("/api/client/heartbeat", withCors(NetworkManager::handleClientHeartbeat));
+                server.createContext("/api/client/disconnect", withCors(NetworkManager::handleClientDisconnect));
+                server.createContext("/api/client/download", withCors(NetworkManager::handleClientDownload));
+                server.createContext("/api/art", withCors(NetworkManager::handleArtFile));
+                server.createContext("/api/admin/command", withCors(NetworkManager::handleAdminCommand));
 
         server.setExecutor(null); // Default single-thread/inline executor
         server.start();
@@ -183,13 +192,13 @@ public class NetworkManager {
     private static void handleStatus(HttpExchange exchange) throws IOException {
         Map<String, Object> status = new HashMap<>();
         status.put("online", true);
-        status.put("connectedClients", connectedClients.size());
+        status.put("connectedClients", activeSessions.size());
         status.put("timestamp", System.currentTimeMillis());
         writeJson(exchange, status);
     }
 
     private static void handleGames(HttpExchange exchange) throws IOException {
-        try (FileReader reader = new FileReader("games.json")) {
+        try (FileReader reader = new FileReader(AppPaths.dataFile("games.json"))) {
             GameLibrary library = new Gson().fromJson(reader, GameLibrary.class);
             writeJson(exchange, library != null ? library : Map.of("games", List.of()));
         } catch (IOException e) {
@@ -212,9 +221,12 @@ public class NetworkManager {
     }
 
     private static void handleClients(HttpExchange exchange) throws IOException {
-        writeJson(exchange, connectedClients);
+        Map<String, String> clientView = new HashMap<>();
+        for (Map.Entry<String, ClientSession> entry : activeSessions.entrySet()) {
+            clientView.put(entry.getKey(), "Connected as " + entry.getValue().username);
+        }
+        writeJson(exchange, clientView);
     }
-
     private static void handleKickClient(HttpExchange exchange) throws IOException {
         if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(405, -1);
@@ -228,7 +240,7 @@ public class NetworkManager {
             clientId = parseQueryParam(query, "id");
         }
 
-        if (clientId == null || !connectedClients.containsKey(clientId)) {
+        if (clientId == null || !activeSessions.containsKey(clientId)) {
             writeJsonError(exchange, "Unknown or inactive client id: " + clientId);
             return;
         }
@@ -239,7 +251,38 @@ public class NetworkManager {
         log("WARN", "Client kicked via Admin API: " + clientId);
         writeJson(exchange, Map.of("message", result.message, "success", result.success));
     }
+    private static void handleAdminLogin(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
 
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> req = new Gson().fromJson(body, Map.class);
+
+        String username = req.get("username");
+        String password = req.get("password");
+
+        User user = UserManager.authenticate(username, password);
+
+        // Verify user exists and has admin privileges
+        if (user == null || !user.isAdmin) {
+            writeJsonError(exchange, "Invalid credentials or not an admin account.");
+            return;
+        }
+
+        // Generate token and session
+        String token = UUID.randomUUID().toString();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("token", token);
+        response.put("username", user.username);
+
+        log("INFO", "Admin logged in successfully: " + username);
+        writeJson(exchange, response);
+    }
     private static void handleConfig(HttpExchange exchange) throws IOException {
         if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
             ServerConfig config = ServerCommands.loadOptions();
@@ -253,7 +296,7 @@ public class NetworkManager {
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 ServerConfig updated = gson.fromJson(body, ServerConfig.class);
-                try (FileWriter writer = new FileWriter("config.json")) {
+                try (FileWriter writer = new FileWriter(AppPaths.configFile("config.json"))) {
                     gson.toJson(updated, writer);
                 }
                 log("INFO", "config.json successfully updated via Admin Panel.");
@@ -427,5 +470,195 @@ public class NetworkManager {
             if (config.apiKeys.containsKey("THEGAMESDB")) {
                 log("INFO", "Loaded TheGamesDB API key credentials.");
             }
+    }
+    private static void handleClientConnect(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
+
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> req = new Gson().fromJson(body, Map.class);
+
+        Object session = connectClient(req.get("username"), req.get("password"));
+        if (session == null) {
+            exchange.sendResponseHeaders(401, -1);
+            exchange.close();
+            return;
+        }
+        writeJson(exchange, session);
+    }
+
+    private static void handleClientHeartbeat(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> req = new Gson().fromJson(body, Map.class);
+
+        heartbeat(req.get("clientId"), req.get("token"), req.get("status"));
+        writeJson(exchange, Map.of("success", true));
+    }
+
+    private static void handleClientDisconnect(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> req = new Gson().fromJson(body, Map.class);
+
+        disConnectClient(req.get("clientId"));
+        writeJson(exchange, Map.of("success", true));
+    }
+    private static void handleClientDownload(HttpExchange exchange) throws IOException {
+        String query = exchange.getRequestURI().getQuery();
+        String clientId = parseQueryParam(query, "clientId");
+        String token = parseQueryParam(query, "token");
+        String requestedPath = parseQueryParam(query, "path");
+
+        if (!authenticateClient(clientId, token)) {
+            exchange.sendResponseHeaders(401, -1);
+            exchange.close();
+            return;
+        }
+
+        if (requestedPath == null || requestedPath.isBlank()) {
+            writeJsonError(exchange, "Missing 'path' query parameter.");
+            return;
+        }
+
+        // Security check: only allow paths that exactly match a known game's fileLocation.
+        // Never trust a raw client-supplied path directly against the filesystem.
+        List<GameEntry> games = ServerCommands.loadGamesList();
+        GameEntry match = games.stream()
+                .filter(g -> requestedPath.equals(g.fileLocation))
+                .findFirst()
+                .orElse(null);
+
+        if (match == null) {
+            writeJsonError(exchange, "Requested file is not a known game.");
+            return;
+        }
+
+        File file = new File(match.fileLocation);
+        if (!file.exists()) {
+            writeJsonError(exchange, "Game file missing on server disk.");
+            return;
+        }
+
+        streamFileWithRangeSupport(exchange, file);
+    }
+    private static void streamFileWithRangeSupport(HttpExchange exchange, File file) throws IOException {
+        long fileLength = file.length();
+        String rangeHeader = exchange.getRequestHeaders().getFirst("Range");
+
+        long start = 0;
+        long end = fileLength - 1;
+
+        if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+            String[] parts = rangeHeader.substring(6).split("-");
+            start = Long.parseLong(parts[0]);
+            if (parts.length > 1 && !parts[1].isEmpty()) {
+                end = Long.parseLong(parts[1]);
+            }
+        }
+
+        long contentLength = end - start + 1;
+
+        exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
+        exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+
+        if (rangeHeader != null) {
+            exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
+            exchange.sendResponseHeaders(206, contentLength); // 206 Partial Content
+        } else {
+            exchange.sendResponseHeaders(200, contentLength);
+        }
+
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r");
+             OutputStream os = exchange.getResponseBody()) {
+
+            raf.seek(start);
+            byte[] buffer = new byte[8192];
+            long remaining = contentLength;
+
+            while (remaining > 0) {
+                int toRead = (int) Math.min(buffer.length, remaining);
+                int read = raf.read(buffer, 0, toRead);
+                if (read == -1) break;
+                os.write(buffer, 0, read);
+                remaining -= read;
+            }
+        }
+    }
+    private static HttpHandler withCors(HttpHandler handler) {
+        return exchange -> {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+
+            handler.handle(exchange);
+        };
+    }
+    private static void handleArtFile(HttpExchange exchange) throws IOException {
+        String query = exchange.getRequestURI().getQuery();
+        String path = parseQueryParam(query, "path");
+
+        if (path == null || path.isBlank()) {
+            writeJsonError(exchange, "Missing 'path' query parameter.");
+            return;
+        }
+
+        File file = new File(path);
+        if (!file.exists() || file.isDirectory()) {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+            return;
+        }
+
+        byte[] bytes = Files.readAllBytes(file.toPath());
+        String contentType = path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+    private static void handleAdminCommand(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            exchange.close();
+            return;
+        }
+
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, Object> req = new Gson().fromJson(body, Map.class);
+
+        String commandName = (String) req.get("command");
+        Map<String, String> params = (Map<String, String>) req.get("params");
+
+        AdminCommand command;
+        try {
+            command = AdminCommand.valueOf(commandName);
+        } catch (Exception e) {
+            writeJsonError(exchange, "Unknown command: " + commandName);
+            return;
+        }
+
+        ServerConfig config = ServerCommands.loadOptions();
+        AdminCommandManager.AdminCommandResult result = AdminCommandManager.execute(command, config, params);
+
+        writeJson(exchange, result);
     }
 }

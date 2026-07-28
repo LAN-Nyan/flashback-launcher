@@ -6,6 +6,9 @@ import com.lannyan.flashbacklauncher.modules.server.GameEntry;
 import com.lannyan.flashbacklauncher.modules.server.ServerConfig;
 import com.lannyan.flashbacklauncher.modules.providers.MetadataProvider;
 import com.lannyan.flashbacklauncher.modules.managers.NetworkManager;
+import com.lannyan.flashbacklauncher.modules.server.User;
+import com.lannyan.flashbacklauncher.modules.managers.UserManager;
+import com.lannyan.flashbacklauncher.modules.managers.PasswordUtil;
 
 import java.io.File;
 import java.io.FileReader;
@@ -61,9 +64,8 @@ public class ServerCommands {
     public static void saveGamesList(List<GameEntry> games) {
         GameLibrary library = new GameLibrary();
         library.games = games;
-
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        try (FileWriter writer = new FileWriter("games.json")) {
+        try (FileWriter writer = new FileWriter(AppPaths.dataFile("games.json"))) {
             gson.toJson(library, writer);
             System.out.println("games.json updated with latest metadata.");
         } catch (IOException e) {
@@ -88,7 +90,7 @@ public class ServerCommands {
     // Load config.json
     public static ServerConfig loadOptions() {
         Gson gson = new Gson();
-        try (FileReader reader = new FileReader("config.json")) {
+        try (FileReader reader = new FileReader(AppPaths.configFile("config.json"))) {
             ServerConfig config = gson.fromJson(reader, ServerConfig.class);
             System.out.println("config.json loaded successfully!");
             return config;
@@ -123,7 +125,7 @@ public class ServerCommands {
 
     public static List<GameEntry> loadGamesList() {
         Gson gson = new Gson();
-        try (FileReader reader = new FileReader("games.json")) {
+        try (FileReader reader = new FileReader(AppPaths.dataFile("games.json"))) {
             GameLibrary library = gson.fromJson(reader, GameLibrary.class);
             System.out.println("Loaded " + library.games.size() + " games from games.json");
             return library.games;
@@ -157,6 +159,21 @@ public class ServerCommands {
         String sgdbKey = ask(scanner, "Enter your SteamGridDB API key (leave blank to skip): ");
         if (!sgdbKey.isEmpty()) config.apiKeys.put("STEAMGRIDDB", sgdbKey);
 
+        // --- New: create the first admin account ---
+        System.out.println("Now let's create your admin account.");
+        String adminUsername = ask(scanner, "Admin username: ").trim();
+        String adminPassword = ask(scanner, "Admin password: ").trim();
+
+        User admin = new User();
+        admin.username = adminUsername;
+        admin.passwordHash = PasswordUtil.hash(adminPassword);
+        admin.isAdmin = true;
+
+        List<User> users = new ArrayList<>();
+        users.add(admin);
+        UserManager.saveUsers(users);
+        System.out.println("Admin account '" + adminUsername + "' created.");
+
         scanner.close();
         writeConfig(config);
         System.out.println("Setup complete! config.json saved.");
@@ -185,7 +202,7 @@ public class ServerCommands {
     // Small helper write any ServerConfig out to config.json (used by both save paths)
     private static void writeConfig(ServerConfig config) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        try (FileWriter writer = new FileWriter("config.json")) {
+        try (FileWriter writer = new FileWriter(AppPaths.configFile("config.json"))) {
             gson.toJson(config, writer);
         } catch (IOException e) {
             System.out.println("Could not write config.json: " + e.getMessage());

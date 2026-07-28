@@ -106,6 +106,25 @@
 </head>
 <body class="h-screen flex overflow-hidden selection:bg-amber-800 selection:text-amber-100">
 
+    <!-- ADMIN LOGIN OVERLAY -->
+    <div id="admin-login-overlay" class="fixed inset-0 bg-coffee-950 z-[100] flex items-center justify-center">
+        <div class="vintage-panel p-8 w-96 space-y-4">
+            <h2 class="text-amber-500 font-bold text-lg font-mono-retro">FLASHBACK ADMIN LOGIN</h2>
+            <div>
+                <label class="block text-coffee-300 text-xs mb-1">Username</label>
+                <input type="text" id="admin-login-username" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+            </div>
+            <div>
+                <label class="block text-coffee-300 text-xs mb-1">Password</label>
+                <input type="password" id="admin-login-password" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+            </div>
+            <button onclick="adminLogin()" class="vintage-button w-full py-2 text-amber-500 hover:text-amber-400 font-bold text-xs">
+                LOGIN
+            </button>
+            <p id="admin-login-status" class="text-xs text-red-400 h-4"></p>
+        </div>
+    </div>
+
     <!-- Sidebar Navigation -->
     <aside class="w-64 bg-coffee-900 border-r border-coffee-800 flex flex-col justify-between shrink-0">
         <div>
@@ -728,7 +747,7 @@
 
         // FETCH REAL GAMES FROM /api/games
         function loadGames() {
-            fetch('/api/games')
+            adminFetch('/api/games')
                 .then(res => res.json())
                 .then(data => {
                     loadedGames = data.games || [];
@@ -894,7 +913,7 @@
         }
 
         function refreshClients() {
-            fetch('/api/clients')
+            adminFetch('/api/clients')
                 .then(res => res.json())
                 .then(clientsMap => {
                     const clientIds = Object.keys(clientsMap);
@@ -946,7 +965,7 @@
         }
 
         function executeAdminCommand(commandName, params, callback) {
-            fetch('/api/admin/command', {
+            adminFetch('/api/admin/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -998,7 +1017,7 @@
         }
 
         function loadConfig() {
-            fetch('/api/config')
+            adminFetch('/api/config')
                 .then(res => res.json())
                 .then(config => {
                     loadedConfig = config;
@@ -1058,7 +1077,7 @@
                 }
             };
 
-            fetch('/api/config', {
+            adminFetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated)
@@ -1072,7 +1091,7 @@
         }
 
         function loadLogs() {
-            fetch('/api/logs')
+            adminFetch('/api/logs')
                 .then(res => res.json())
                 .then(data => {
                     const logs = data.logs || [];
@@ -1113,7 +1132,7 @@
 
             document.getElementById('current-filename').innerText = path;
 
-            fetch(`/api/files/read?path=${encodeURIComponent(path)}`)
+            adminFetch(`/api/files/read?path=${encodeURIComponent(path)}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
@@ -1130,7 +1149,7 @@
 
         function saveCurrentFile() {
             const content = document.getElementById('file-editor-text').value;
-            fetch(`/api/files/save?path=${encodeURIComponent(currentActiveFilePath)}`, {
+            adminFetch(`/api/files/save?path=${encodeURIComponent(currentActiveFilePath)}`, {
                 method: 'POST',
                 body: content
             })
@@ -1258,14 +1277,64 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
-            loadGames();
-            refreshClients();
-            loadConfig();
-            loadLogs();
-
+            // loadGames/refreshClients/loadConfig/loadLogs now run after a
+            // successful adminLogin() instead of firing immediately here,
+            // since there's no valid admin token yet at page load.
             setInterval(refreshClients, 5000);
             setInterval(loadLogs, 6000);
         });
+
+        // ---------------------------------------------------------------
+        // Admin Authentication
+        // ---------------------------------------------------------------
+
+        let adminToken = null;
+
+        async function adminLogin() {
+            const username = document.getElementById('admin-login-username').value.trim();
+            const password = document.getElementById('admin-login-password').value.trim();
+            const statusEl = document.getElementById('admin-login-status');
+
+            if (!username || !password) {
+                statusEl.innerText = 'Enter both fields.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    statusEl.innerText = 'Invalid credentials or not an admin account.';
+                    return;
+                }
+
+                const data = await res.json();
+                adminToken = data.token;
+
+                document.getElementById('admin-login-overlay').classList.add('hidden');
+                loadGames();
+                refreshClients();
+                loadConfig();
+                loadLogs();
+            } catch (err) {
+                statusEl.innerText = 'Could not reach server.';
+            }
+        }
+
+        // Wrapper that attaches the admin bearer token to every API call.
+        // All fetch() calls to /api/* routes below have been routed through
+        // this instead of calling fetch() directly.
+        function adminFetch(url, options = {}) {
+            options.headers = {
+                ...(options.headers || {}),
+                'Authorization': `Bearer ${adminToken}`
+            };
+            return fetch(url, options);
+        }
     </script>
 </body>
 </html>

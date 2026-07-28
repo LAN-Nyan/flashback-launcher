@@ -2,6 +2,7 @@ package com.lannyan.flashbacklauncher.modules.managers;
 
 import com.lannyan.flashbacklauncher.modules.server.GameEntry;
 import com.lannyan.flashbacklauncher.modules.server.ServerConfig;
+import com.lannyan.flashbacklauncher.modules.server.AppPaths;
 
 import java.io.File;
 import java.util.HashMap;
@@ -12,10 +13,12 @@ import java.util.ArrayList;
 
 public class FileManager {
 
-    // Matches: (id: 38627) Luigi's Mansion [GLMP01].iso
-    // Group 1 = provider id, Group 2 = common name, Group 3 = code
+    // Matches optional (id: XXX), common name, and optional [GameCode]
+    // Example 1: (id: 38627) Luigi's Mansion [GLMP01] -> id: 38627, name: Luigi's Mansion, code: GLMP01
+    // Example 2: Super Mario Galaxy [RM8E01]          -> id: null,  name: Super Mario Galaxy, code: RM8E01
+    // Example 3: Donkey Kong Country                  -> id: null,  name: Donkey Kong Country, code: null
     private static final Pattern NAME_PATTERN =
-            Pattern.compile("\\(id:\\s*(\\S+)\\)\\s*(.+?)(?:\\s*\\[(\\w+)\\])?$");
+            Pattern.compile("^(?:\\(id:\\s*(\\S+)\\)\\s*)?(.+?)(?:\\s*\\[(\\w+)\\])?$");
 
     /**
      * Scans config.gamesDirectory for console subfolders, finds game files,
@@ -76,16 +79,17 @@ public class FileManager {
 
         Matcher m = NAME_PATTERN.matcher(nameNoExt);
         if (m.find()) {
-            String providerId = m.group(1);
-            String commonName = m.group(2);
-            String code = m.group(3); // may be null now
+            String providerId = m.group(1); // May be null for clean filenames
+            String commonName = m.group(2) != null ? m.group(2).trim() : nameNoExt;
+            String code = m.group(3);       // May be null (e.g. GameCube/Wii ID like RM8E01)
 
             entry.commonName = commonName;
-            entry.gameName = code; // fine if null — GameEntry.gameName is just unset
-            entry.providerIds.put(config.defaultMetadataProvider, providerId);
+            entry.gameName = code;
+
+            if (providerId != null) {
+                entry.providerIds.put(config.defaultMetadataProvider, providerId);
+            }
         } else {
-            System.out.println("  WARNING: '" + filename + "' doesn't match the naming convention, "
-                    + "using filename as common name. See docs/home.md.");
             entry.commonName = nameNoExt;
         }
 
@@ -111,10 +115,8 @@ public class FileManager {
     }
     public static File getGameDataDir(GameEntry game, ServerConfig config) {
         String safeName = game.commonName.replaceAll("[^a-zA-Z0-9 ]", "").trim();
-        File dir = new File("game_data" + File.separator + game.console + File.separator + safeName);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
+        File dir = new File(AppPaths.dataDir(), "game_data" + File.separator + game.console + File.separator + safeName);
+        if (!dir.exists()) dir.mkdirs();
         return dir;
     }
 

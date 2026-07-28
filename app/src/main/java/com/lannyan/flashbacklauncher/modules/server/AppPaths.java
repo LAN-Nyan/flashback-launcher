@@ -4,7 +4,7 @@ import java.io.File;
 
 public class AppPaths {
 
-    private static final String APP_NAME = "flashback-launcher";
+    private static final String APP_NAME = "flashback-server";
 
     public static File configDir() {
         String xdgConfig = System.getenv("XDG_CONFIG_HOME");
