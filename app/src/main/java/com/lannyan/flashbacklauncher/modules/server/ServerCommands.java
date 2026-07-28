@@ -26,6 +26,7 @@ public class ServerCommands {
     static String errorMessage = "";
 
     public static void startServer() {
+
         System.out.println("Starting Server...");
         loadStartupSettings();
 
@@ -43,13 +44,17 @@ public class ServerCommands {
 
         if (hasError) {
             System.out.println("An error has occured during startup: " + errorMessage);
+        } else {
+            NetworkManager.startAdminServer(config);
         }
     }
 
     // Load file list, and different consoles/types (eg. EXE vs. ISO, or .gba/.bin)
     public static void loadFiles(ServerConfig config) {
-        FileManager.fetchFileList(config);
-        // this method is here for startup options later on!
+        List<GameEntry> games = loadGamesList();
+        games = FileManager.pruneMissingFiles(games);
+        games = FileManager.fetchFileList(config, games);
+        saveGamesList(games);
         System.out.println("Files loaded successfully!");
     }
 

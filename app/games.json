@@ -1,21 +1,38 @@
 {
   "games": [
     {
+      "console": "NX",
+      "commonName": "Splatoon 3",
+      "fileLocation": "/home/garrett/flashback-server/app/games/NX/(id: 5277939) Splatoon 3.nsp",
+      "preferredMetadataProvider": "STEAMGRIDDB",
+      "rating": 0.0,
+      "fileSize": 0,
+      "coverArt": "/home/garrett/flashback-server/app/game_data/NX/Splatoon 3/cover.png",
+      "providerIds": {
+        "STEAMGRIDDB": "5277939"
+      }
+    },
+    {
+      "console": "GC",
+      "commonName": "WindWaker",
+      "fileLocation": "/home/garrett/flashback-server/app/games/GC/WindWaker.iso",
+      "preferredMetadataProvider": "STEAMGRIDDB",
+      "rating": 0.0,
+      "fileSize": 0,
+      "coverArt": "/home/garrett/flashback-server/app/game_data/GC/WindWaker/cover.png",
+      "providerIds": {
+        "STEAMGRIDDB": "5298833"
+      }
+    },
+    {
       "console": "GC",
       "commonName": "Luigi\u0027s Mansion",
       "gameName": "GLMP01",
-      "gameRegion": "NA",
-      "fileLocation": "PATH/TO/FILE/ON/SERVER/DISK",
+      "fileLocation": "/home/garrett/flashback-server/app/games/GC/(id: 38627) Luigi\u0027s Mansion [GLMP01].iso",
       "preferredMetadataProvider": "STEAMGRIDDB",
-      "rating": 8.1,
-      "date": "2002-05-03",
-      "fileSize": 1536000000,
-      "banner": "PATH/TO/IMG",
-      "coverArt": "PATH/TO/IMG",
-      "disk": "PATH/TO/IMG",
-      "language": "en_US",
-      "emulator": "dolphin-emu",
-      "descriptionTxt": "PATH/TO/DESCRIPTION.TXT",
+      "rating": 0.0,
+      "fileSize": 0,
+      "coverArt": "/home/garrett/flashback-server/app/game_data/GC/Luigis Mansion/cover.png",
       "providerIds": {
         "STEAMGRIDDB": "38627"
       }

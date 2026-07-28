@@ -1,6 +1,8 @@
 package com.lannyan.flashbacklauncher.modules.managers;
 
 import java.util.List;
+import java.io.File;
+
 import com.lannyan.flashbacklauncher.modules.server.GameEntry;
 import com.lannyan.flashbacklauncher.modules.server.ServerConfig;
 import com.lannyan.flashbacklauncher.modules.providers.MetadataProvider;
@@ -14,6 +16,11 @@ public class MetadataManager {
             System.out.println("Checking metadata for: " + game.commonName);
             MetadataProvider provider = getProviderFor(game.preferredMetadataProvider, config);
             provider.fetchMetadata(game);
+
+            if (provider instanceof SteamGridDbProvider sgdb) {
+                File gameDataDir = FileManager.getGameDataDir(game, config);
+                sgdb.fetchArt(game, gameDataDir);
+            }
         }
         System.out.println("Metadata is up to date.");
     }
@@ -27,6 +34,7 @@ public class MetadataManager {
             default:
                 System.out.println("Unknown provider: " + providerName + ", skipping.");
                 return new GameTdbProvider();
+
         }
     }
 }

@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashback Launcher - Server Admin Panel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coffee: {
+                            950: '#14110f',
+                            900: '#1f1a17',
+                            850: '#2b2420',
+                            800: '#382f29',
+                            700: '#4e423a',
+                            600: '#6b5c52',
+                            500: '#8c786b',
+                            400: '#ab9789',
+                            300: '#c7b8ad',
+                            200: '#e3dad3',
+                            100: '#f4efe9',
+                        },
+                        amber70s: {
+                            DEFAULT: '#d97706',
+                            glow: '#b45309',
+                            accent: '#f59e0b',
+                            cream: '#fef3c7'
+                        }
+                    },
+                    borderRadius: {
+                        'sm': '2px',
+                        'DEFAULT': '3px',
+                        'md': '4px',
+                        'lg': '6px',
+                        'xl': '8px',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #14110f;
+            color: #f4efe9;
+        }
+
+        .font-mono-retro {
+            font-family: 'Courier Prime', monospace;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f1a17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #382f29;
+            border: 1px solid #4e423a;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b5c52;
+        }
+
+        .vintage-panel {
+            background: #1f1a17;
+            border: 1px solid #382f29;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+        }
+
+        .vintage-button {
+            background: #2b2420;
+            border: 1px solid #4e423a;
+            box-shadow: 1px 1px 0px #000;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .vintage-button:hover {
+            background: #382f29;
+            border-color: #d97706;
+        }
+
+        .sepia-overlay {
+            background-image: radial-gradient(#382f29 1px, transparent 0);
+            background-size: 16px 16px;
+            opacity: 0.25;
+        }
+
+        textarea.code-editor {
+            tab-size: 2;
+            white-space: pre;
+            word-break: normal;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden selection:bg-amber-800 selection:text-amber-100">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-coffee-900 border-r border-coffee-800 flex flex-col justify-between shrink-0">
+        <div>
+            <!-- Logo Section -->
+            <div class="p-5 flex items-center gap-3 border-b border-coffee-800 bg-coffee-950/60">
+                <div class="w-10 h-10 border border-amber-700 bg-coffee-850 flex items-center justify-center text-amber-500 shadow">
+                    <i data-lucide="camera" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-amber-500 font-mono-retro tracking-wider">FLASHBACK</h1>
+                    <p class="text-[11px] text-coffee-400 font-mono-retro">v1.4.2 // SERVER ADMIN</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="p-3 space-y-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all bg-amber-700 text-coffee-100 border border-amber-600 shadow-sm">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+                </button>
+                <button onclick="switchTab('library')" id="nav-library" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="folder-archive" class="w-4 h-4"></i> Game Library
+                    <span id="sidebar-game-count" class="ml-auto bg-coffee-800 text-amber-400 text-[10px] px-2 py-0.5 rounded-sm font-mono-retro border border-coffee-700">0</span>
+                </button>
+                <button onclick="switchTab('storage')" id="nav-storage" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="hard-drive" class="w-4 h-4"></i> Storage & Mounts
+                </button>
+                <button onclick="switchTab('emulators')" id="nav-emulators" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="sliders" class="w-4 h-4"></i> Emulator Queue
+                </button>
+                <button onclick="switchTab('clients')" id="nav-clients" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="monitor" class="w-4 h-4"></i> Active Clients
+                    <span class="ml-auto w-2 h-2 rounded-sm bg-emerald-500 animate-pulse"></span>
+                </button>
+                <button onclick="switchTab('files')" id="nav-files" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="file-code" class="w-4 h-4"></i> Server Files & Editor
+                </button>
+                <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="terminal" class="w-4 h-4"></i> Live Server Logs
+                </button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="settings" class="w-4 h-4"></i> Server Config (.json)
+                </button>
+                <button onclick="switchTab('themes')" id="nav-themes" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-xs uppercase tracking-wider font-semibold text-coffee-300 hover:text-coffee-100 hover:bg-coffee-850 transition-all border border-transparent">
+                    <i data-lucide="paintbrush" class="w-4 h-4"></i> Themes
+                </button>
+            </nav>
+        </div>
+
+        <!-- Server Live Status -->
+        <div class="p-4 border-t border-coffee-800 bg-coffee-950/80 font-mono-retro text-xs space-y-2">
+            <div class="flex items-center justify-between text-coffee-400">
+                <span>SYSTEM STATUS:</span>
+                <span class="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-sm animate-pulse"></span> ONLINE
+                </span>
+            </div>
+            <div class="space-y-1 text-[11px] text-coffee-400 border-t border-coffee-850 pt-2">
+                <div class="flex justify-between">
+                    <span>Active Clients:</span>
+                    <span class="text-amber-400" data-live-client-count>0 Connections</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Metadata Provider:</span>
+                    <span id="sidebar-provider-name" class="text-coffee-200">STEAMGRIDDB</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 bg-coffee-950 relative overflow-hidden">
+        <div class="absolute inset-0 sepia-overlay pointer-events-none"></div>
+
+        <!-- Top Header -->
+        <header class="h-16 border-b border-coffee-800 bg-coffee-900 px-6 flex items-center justify-between shrink-0 relative z-10">
+            <div class="flex items-center gap-4">
+                <h2 id="page-title" class="text-base font-bold text-coffee-100 uppercase tracking-widest font-mono-retro">Dashboard Overview</h2>
+                <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-coffee-850 border border-coffee-700 text-[11px] font-mono-retro text-coffee-300">
+                    <i data-lucide="file-json" class="w-3.5 h-3.5 text-amber-500"></i>
+                    <span>games.json LINKED</span>
+                </div>
+            </div>
+
+            <!-- Header Quick Controls -->
+            <div class="flex items-center gap-3">
+                <button onclick="triggerRescan()" id="rescan-btn" class="vintage-button px-3 py-1.5 text-amber-500 hover:text-amber-400 text-xs font-mono-retro flex items-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> RESCAN games.json
+                </button>
+                <div class="h-4 w-px bg-coffee-800"></div>
+                <div class="flex items-center gap-2 pl-2">
+                    <div class="w-8 h-8 border border-coffee-700 bg-coffee-800 flex items-center justify-center font-mono-retro text-xs font-bold text-amber-500">
+                        SYS
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dynamic View Container -->
+        <main id="main-content" class="flex-1 overflow-y-auto p-6 space-y-6 relative z-10">
+
+            <!-- DASHBOARD TAB -->
+            <div id="tab-dashboard" class="space-y-6">
+                <!-- Metrics Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="vintage-panel p-4">
+                        <div class="flex items-center justify-between text-coffee-400 mb-1 text-xs uppercase font-mono-retro">
+                            <span>Index ROM Count</span>
+                            <i data-lucide="film" class="w-4 h-4 text-amber-500"></i>
+                        </div>
+                        <div id="dash-game-count" class="text-2xl font-bold text-coffee-100 font-mono-retro">0</div>
+                        <p class="text-[11px] text-emerald-400 mt-1 font-mono-retro">Indexed & verified</p>
+                    </div>
+
+                    <div class="vintage-panel p-4">
+                        <div class="flex items-center justify-between text-coffee-400 mb-1 text-xs uppercase font-mono-retro">
+                            <span>Mounted Volume</span>
+                            <i data-lucide="hard-drive" class="w-4 h-4 text-amber-500"></i>
+                        </div>
+                        <div id="dash-volume-size" class="text-2xl font-bold text-coffee-100 font-mono-retro">0 GB</div>
+                        <div class="w-full bg-coffee-950 h-2 border border-coffee-800 mt-2 p-0.5">
+                            <div class="bg-amber-700 h-full w-[45%]"></div>
+                        </div>
+                    </div>
+
+                    <div class="vintage-panel p-4">
+                        <div class="flex items-center justify-between text-coffee-400 mb-1 text-xs uppercase font-mono-retro">
+                            <span>Active Connections</span>
+                            <i data-lucide="monitor" class="w-4 h-4 text-amber-500"></i>
+                        </div>
+                        <div id="dash-client-count" class="text-2xl font-bold text-coffee-100 font-mono-retro">0 Clients</div>
+                        <p class="text-[11px] text-coffee-400 mt-1 font-mono-retro">Connected to server</p>
+                    </div>
+
+                    <div class="vintage-panel p-4">
+                        <div class="flex items-center justify-between text-coffee-400 mb-1 text-xs uppercase font-mono-retro">
+                            <span>Port / Mode</span>
+                            <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
+                        </div>
+                        <div id="dash-port-display" class="text-2xl font-bold text-coffee-100 font-mono-retro">8080</div>
+                        <p class="text-[11px] text-amber-500 mt-1 font-mono-retro">HTTP Web Listener</p>
+                    </div>
+                </div>
+
+                <!-- Main Activity Panel -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Naming Convention Reference Box -->
+                    <div class="lg:col-span-1 vintage-panel p-5 space-y-4">
+                        <div class="border-b border-coffee-800 pb-3 flex items-center justify-between">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 font-mono-retro flex items-center gap-2">
+                                <i data-lucide="file-code" class="w-4 h-4"></i> Directory Standard
+                            </h3>
+                            <span class="text-[10px] bg-coffee-800 border border-coffee-700 text-coffee-300 font-mono-retro px-1.5 py-0.5">MANDATORY</span>
+                        </div>
+                        <p class="text-xs text-coffee-300 leading-relaxed font-mono-retro">
+                            Flashback expects games to be grouped by console folder on Linux storage path using identifiers:
+                        </p>
+                        <div class="bg-coffee-950 p-3 border border-coffee-800 font-mono-retro text-[11px] space-y-2 text-coffee-300">
+                            <p class="text-coffee-500">// Directory layout:</p>
+                            <p class="text-amber-500">CONSOLE_CODE/</p>
+                            <p class="pl-3 text-coffee-200">(id: ProviderID) TITLE.ext</p>
+                            <div class="h-px bg-coffee-800 my-1"></div>
+                            <p class="text-coffee-500">// Example Linux path:</p>
+                            <p class="text-coffee-400">/app/games/NX/</p>
+                            <p class="pl-3 text-amber-400">(id: 5277939) Splatoon 3.nsp</p>
+                        </div>
+                    </div>
+
+                    <!-- Realtime Client Feed Box -->
+                    <div class="lg:col-span-2 vintage-panel p-5 space-y-4">
+                        <div class="border-b border-coffee-800 pb-3 flex items-center justify-between">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 font-mono-retro flex items-center gap-2">
+                                <i data-lucide="activity" class="w-4 h-4"></i> Live Server Log Feed
+                            </h3>
+                            <button onclick="switchTab('logs')" class="text-[11px] text-amber-500 hover:underline font-mono-retro">
+                                View Full Log Console &rarr;
+                            </button>
+                        </div>
+
+                        <!-- Live Feed Output Container -->
+                        <div id="dashboard-log-feed" class="bg-coffee-950 border border-coffee-800 p-4 font-mono-retro text-xs space-y-3 h-48 overflow-y-auto">
+                            <div class="text-coffee-500 text-xs">Loading live log stream...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GAME LIBRARY TAB -->
+            <div id="tab-library" class="hidden space-y-4">
+                <div class="vintage-panel p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="relative w-full md:w-96">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-coffee-500"></i>
+                        <input type="text" id="library-search-input" oninput="filterGamesList()" placeholder="Search title, console, or SteamGridDB ID..." class="w-full pl-9 pr-4 py-2 bg-coffee-950 border border-coffee-700 text-xs text-coffee-100 font-mono-retro focus:outline-none focus:border-amber-600">
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="flex border border-coffee-700 bg-coffee-950 p-1 font-mono-retro text-xs">
+                            <button onclick="setLibraryViewMode('grid')" id="view-mode-grid" class="px-3 py-1 bg-amber-700 text-coffee-100 font-bold flex items-center gap-1.5">
+                                <i data-lucide="grid" class="w-3.5 h-3.5"></i> Poster Grid
+                            </button>
+                            <button onclick="setLibraryViewMode('list')" id="view-mode-list" class="px-3 py-1 text-coffee-400 hover:text-coffee-200 flex items-center gap-1.5">
+                                <i data-lucide="list" class="w-3.5 h-3.5"></i> Detailed List
+                            </button>
+                        </div>
+                        <div class="text-xs font-mono-retro text-coffee-400">
+                            SOURCE: <span class="text-amber-500 font-bold">games.json INDEX</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Console Containers -->
+                <div id="library-console-folders" class="space-y-6">
+                    <!-- Dynamic console folders and box art cards render here -->
+                </div>
+            </div>
+
+            <!-- STORAGE & LINUX MOUNTS TAB -->
+            <div id="tab-storage" class="hidden space-y-6">
+                <div class="vintage-panel p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b border-coffee-800 pb-3">
+                        <div>
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 font-mono-retro">Linux Server Mount Points</h3>
+                            <p class="text-xs text-coffee-400 font-mono-retro">Local filesystems parsed by Flashback daemon</p>
+                        </div>
+                    </div>
+
+                    <div id="storage-mounts-list" class="space-y-3 pt-2 font-mono-retro text-xs">
+                        <!-- Rendered from config.json -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- EMULATOR QUEUE TAB -->
+            <div id="tab-emulators" class="hidden space-y-6">
+                <div class="vintage-panel p-6 space-y-4">
+                    <div class="border-b border-coffee-800 pb-3 flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 font-mono-retro">emulators.json Registry</h3>
+                            <p class="text-xs text-coffee-400 font-mono-retro">Console code mappings and emulator priority order</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 font-mono-retro text-xs">
+                        <div class="p-4 bg-coffee-950 border border-coffee-800 space-y-3">
+                            <div class="flex items-center justify-between flex-wrap gap-3">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 bg-coffee-850 text-amber-500 font-bold flex items-center justify-center text-xs border border-coffee-700">
+                                        NX
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-coffee-100 text-sm">RYUJINX / YUZU</p>
+                                        <p class="text-coffee-400">Mapped Console Codes: <span class="text-amber-500 font-bold">NX</span></p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-coffee-300 font-mono">ryujinx</p>
+                                    <p class="text-emerald-400 text-[11px]">Default Auto-Launcher Active</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-coffee-950 border border-coffee-800 space-y-3">
+                            <div class="flex items-center justify-between flex-wrap gap-3">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 bg-coffee-850 text-amber-500 font-bold flex items-center justify-center text-xs border border-coffee-700">
+                                        GC/WII
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-coffee-100 text-sm">DOLPHIN EMULATOR</p>
+                                        <p class="text-coffee-400">Mapped Console Codes: <span class="text-amber-500 font-bold">GC, WII</span></p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-coffee-300 font-mono">dolphin-emu</p>
+                                    <p class="text-emerald-400 text-[11px]">Default Auto-Launcher Active</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIVE CLIENT CONNECTIONS TAB -->
+            <div id="tab-clients" class="hidden space-y-6">
+                <div class="vintage-panel p-6 space-y-4">
+                    <div class="border-b border-coffee-800 pb-3 flex justify-between items-center">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 font-mono-retro">Active Client Sessions</h3>
+                        <span id="clients-tab-count" class="text-xs text-emerald-400 font-mono-retro">0 Connections Online</span>
+                    </div>
+
+                    <div id="clients-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Dynamic clients from /api/clients -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVER FILES & EDITOR TAB -->
+            <div id="tab-files" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+                    <!-- File Explorer Tree -->
+                    <div class="lg:col-span-1 vintage-panel p-4 space-y-3 font-mono-retro text-xs">
+                        <div class="flex items-center justify-between border-b border-coffee-800 pb-2 text-amber-500 font-bold">
+                            <span class="flex items-center gap-1.5"><i data-lucide="folder-tree" class="w-4 h-4"></i> SERVER FILES</span>
+                            <span class="text-[10px] text-coffee-400">flashback-launcher/</span>
+                        </div>
+
+                        <div class="space-y-1 pt-1 max-h-[520px] overflow-y-auto pr-1">
+                            <button onclick="loadFileEditor('config.json')" id="file-btn-config.json" class="file-select-btn w-full text-left px-2 py-1.5 rounded-sm flex items-center gap-2 text-coffee-300 hover:bg-coffee-850/60">
+                                <i data-lucide="file-json" class="w-3.5 h-3.5 text-amber-500"></i> config.json
+                            </button>
+
+                            <button onclick="loadFileEditor('games.json')" id="file-btn-games.json" class="file-select-btn w-full text-left px-2 py-1.5 rounded-sm flex items-center gap-2 text-coffee-300 hover:bg-coffee-850/60">
+                                <i data-lucide="file-json" class="w-3.5 h-3.5 text-amber-500"></i> games.json
+                            </button>
+
+                            <p class="text-coffee-500 pt-2 pb-0.5 pl-1">// Managers & Handlers</p>
+                            <button onclick="loadFileEditor('app/src/main/java/com/lannyan/flashbacklauncher/modules/managers/AdminCommand.java')" class="file-select-btn w-full text-left px-2 py-1.5 rounded-sm flex items-center gap-2 text-coffee-300 hover:bg-coffee-850/60 pl-2">
+                                <i data-lucide="coffee" class="w-3.5 h-3.5 text-orange-400"></i> AdminCommand.java
+                            </button>
+                            <button onclick="loadFileEditor('app/src/main/java/com/lannyan/flashbacklauncher/modules/managers/AdminCommandManager.java')" class="file-select-btn w-full text-left px-2 py-1.5 rounded-sm flex items-center gap-2 text-coffee-300 hover:bg-coffee-850/60 pl-2">
+                                <i data-lucide="coffee" class="w-3.5 h-3.5 text-orange-400"></i> AdminCommandManager.java
+                            </button>
+                            <button onclick="loadFileEditor('app/src/main/java/com/lannyan/flashbacklauncher/modules/managers/MetadataManager.java')" class="file-select-btn w-full text-left px-2 py-1.5 rounded-sm flex items-center gap-2 text-coffee-300 hover:bg-coffee-850/60 pl-2">
+                                <i data-lucide="coffee" class="w-3.5 h-3.5 text-orange-400"></i> MetadataManager.java
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live File Editor Container -->
+                    <div class="lg:col-span-3 vintage-panel p-5 space-y-4 font-mono-retro">
+                        <div class="flex items-center justify-between border-b border-coffee-800 pb-3">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="edit-3" class="w-4 h-4 text-amber-500"></i>
+                                <span id="current-filename" class="font-bold text-coffee-100 text-sm">config.json</span>
+                                <span class="text-[10px] bg-coffee-850 text-emerald-400 border border-coffee-700 px-2 py-0.5">READ / WRITE</span>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button onclick="saveCurrentFile()" class="vintage-button px-3 py-1.5 text-xs text-amber-500 hover:text-amber-400 flex items-center gap-1.5">
+                                    <i data-lucide="save" class="w-3.5 h-3.5"></i> Save File
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Editor Output Area -->
+                        <div class="relative bg-coffee-950 border border-coffee-800 p-3 font-mono-retro text-xs text-coffee-200">
+                            <textarea id="file-editor-text" rows="18" class="code-editor w-full bg-transparent border-0 focus:outline-none text-coffee-200 font-mono-retro text-xs leading-relaxed resize-none"></textarea>
+                        </div>
+
+                        <div class="flex justify-between items-center text-[11px] text-coffee-400 pt-1">
+                            <span id="editor-file-info">UTF-8 File</span>
+                            <span id="save-status-toast" class="text-emerald-400 hidden">✓ File saved successfully</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- LIVE SERVER LOGS TAB -->
+            <div id="tab-logs" class="hidden space-y-6">
+                <div class="vintage-panel p-6 space-y-4 font-mono-retro">
+
+                    <div class="border-b border-coffee-800 pb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                        <div>
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 flex items-center gap-2">
+                                <i data-lucide="terminal" class="w-4 h-4"></i> Realtime Server Logs
+                            </h3>
+                            <p class="text-xs text-coffee-400 mt-0.5">Live log stream from <code class="text-coffee-200">/api/logs</code></p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button onclick="clearLogConsole()" class="vintage-button px-3 py-1.5 text-xs text-coffee-300 hover:text-coffee-100 flex items-center gap-1.5">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear Console
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Log Output Window -->
+                    <div id="full-log-terminal" class="bg-coffee-950 border border-coffee-800 p-4 text-xs font-mono-retro space-y-2 h-[480px] overflow-y-auto leading-relaxed">
+                        <p class="text-coffee-500">// Connected to live server log buffer stream...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div id="tab-settings" class="hidden space-y-6">
+                <div class="vintage-panel p-6 space-y-6 font-mono-retro">
+
+                    <div class="flex justify-between items-center border-b border-coffee-800 pb-3">
+                        <div>
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500">Server Configuration (config.json)</h3>
+                            <p class="text-xs text-coffee-400 mt-0.5">Manage root server settings, game directory indices, and scraper rules</p>
+                        </div>
+                        <button onclick="saveSettingsConfig()" class="vintage-button px-4 py-2 text-amber-500 hover:text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                            <i data-lucide="save" class="w-4 h-4"></i> Save config.json
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+
+                        <!-- Network & Host Settings -->
+                        <div class="space-y-4 bg-coffee-950 p-4 border border-coffee-850">
+                            <h4 class="font-bold text-amber-500 uppercase border-b border-coffee-800 pb-2 flex items-center gap-1.5">
+                                <i data-lucide="network" class="w-4 h-4"></i> Network & Binding
+                            </h4>
+                            <div>
+                                <label class="block text-coffee-300 mb-1">Server Listen Port</label>
+                                <input type="number" id="cfg-port" value="8080" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+                            </div>
+                            <div class="flex items-center justify-between pt-1">
+                                <div>
+                                    <p class="font-bold text-coffee-200">Use HTTPS / SSL Credentials</p>
+                                    <p class="text-coffee-500 text-[11px]">Require certificate keypairs</p>
+                                </div>
+                                <input type="checkbox" id="cfg-useHttps" class="accent-amber-600">
+                            </div>
+                        </div>
+
+                        <!-- Data Paths & Directories -->
+                        <div class="space-y-4 bg-coffee-950 p-4 border border-coffee-850">
+                            <h4 class="font-bold text-amber-500 uppercase border-b border-coffee-800 pb-2 flex items-center gap-1.5">
+                                <i data-lucide="folder" class="w-4 h-4"></i> Server Directories
+                            </h4>
+                            <div>
+                                <label class="block text-coffee-300 mb-1">Games Directory Path</label>
+                                <input type="text" id="cfg-gamesDir" value="games" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+                            </div>
+                        </div>
+
+                        <!-- Scraper Settings -->
+                        <div class="space-y-4 bg-coffee-950 p-4 border border-coffee-850">
+                            <h4 class="font-bold text-amber-500 uppercase border-b border-coffee-800 pb-2 flex items-center gap-1.5">
+                                <i data-lucide="database" class="w-4 h-4"></i> Metadata Scraper Settings
+                            </h4>
+                            <div>
+                                <label class="block text-coffee-300 mb-1">Default Metadata Provider</label>
+                                <select id="cfg-defaultProvider" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+                                    <option value="STEAMGRIDDB">SteamGridDB</option>
+                                    <option value="THEGAMESDB">TheGamesDB</option>
+                                    <option value="GAMETDB">GameTDB</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-coffee-300 mb-1">SteamGridDB API Key</label>
+                                <input type="text" id="cfg-sgdbKey" placeholder="Paste SteamGridDB key..." class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+                            </div>
+                            <div>
+                                <label class="block text-coffee-300 mb-1">TheGamesDB API Key</label>
+                                <input type="text" id="cfg-tgdbKey" placeholder="Paste TheGamesDB key..." class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 focus:outline-none focus:border-amber-600">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- THEMES TAB -->
+            <div id="tab-themes" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="vintage-panel p-5 space-y-4 font-mono-retro">
+                        <div class="border-b border-coffee-800 pb-3">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-500 flex items-center gap-2">
+                                <i data-lucide="monitor" class="w-4 h-4"></i> Client Theme Distribution
+                            </h3>
+                            <p class="text-xs text-coffee-400 mt-0.5">Push custom themes to connected desktop clients using <code class="text-amber-500">PUSH_THEME</code></p>
+                        </div>
+                        <div>
+                            <label class="block text-coffee-300 mb-1 text-xs">Custom CSS Theme File URL</label>
+                            <input type="text" id="theme-css-url" placeholder="https://example.com/themes/client-retro.css" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 text-xs focus:outline-none focus:border-amber-600">
+                        </div>
+                        <div>
+                            <label class="block text-coffee-300 mb-1 text-xs">Inline CSS Override (Optional)</label>
+                            <textarea id="theme-inline-css" rows="4" placeholder="/* Custom CSS overrides */" class="w-full bg-coffee-900 border border-coffee-700 p-2 text-coffee-100 text-xs focus:outline-none focus:border-amber-600 font-mono-retro"></textarea>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1">
+                            <input type="checkbox" id="theme-force-push" class="accent-amber-600">
+                            <label for="theme-force-push" class="text-xs text-coffee-300">Force overwrite active client styling</label>
+                        </div>
+                        <button onclick="pushThemeToClients()" class="vintage-button px-4 py-2 text-xs text-amber-500 hover:text-amber-400 flex items-center gap-1.5 font-bold">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Push Theme to Clients
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- CLIENT LAUNCHER PREVIEW & COVER ART MODAL -->
+    <div id="preview-modal" class="fixed inset-0 bg-coffee-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="vintage-panel max-w-2xl w-full p-6 space-y-4 relative border-amber-700">
+            <button onclick="closeClientPreview()" class="absolute top-4 right-4 text-coffee-400 hover:text-coffee-100">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="border-b border-coffee-800 pb-2 flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] font-mono-retro bg-amber-700 text-coffee-100 px-2 py-0.5">GAME METADATA & COVER ART</span>
+                    <h3 id="modal-title" class="text-lg font-bold text-coffee-100 font-mono-retro mt-1">Game Title</h3>
+                </div>
+            </div>
+
+            <div class="bg-coffee-950 border border-coffee-800 p-4 space-y-4 font-mono-retro">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                    <!-- High Res Poster Display -->
+                    <div id="modal-cover-container" class="md:col-span-1 bg-coffee-900 border border-coffee-700 rounded-sm overflow-hidden flex flex-col items-center justify-center text-center relative aspect-[3/4]">
+                        <img id="modal-cover-img" src="" alt="Cover Art" class="w-full h-full object-cover hidden">
+                        <div id="modal-cover-fallback" class="p-4 flex flex-col items-center justify-center text-amber-500">
+                            <i data-lucide="disc" class="w-12 h-12 mb-2 opacity-60"></i>
+                            <span id="modal-code" class="text-[10px] text-coffee-300 font-bold">NO ARTWORK</span>
+                        </div>
+                    </div>
+
+                    <!-- Details Column -->
+                    <div class="md:col-span-2 space-y-3 text-xs">
+                        <div class="p-2.5 bg-coffee-900 border border-coffee-800 space-y-1">
+                            <p class="text-coffee-400">Console: <span id="modal-console" class="text-amber-500 font-bold">NX</span></p>
+                            <p class="text-coffee-400">File Location: <span id="modal-file-location" class="text-coffee-200 text-[11px] break-all">/path/to/rom</span></p>
+                            <p class="text-coffee-400">Preferred Scraper: <span id="modal-provider" class="text-amber-400 font-bold">STEAMGRIDDB</span></p>
+                            <p class="text-coffee-400">Cover Art File Path:</p>
+                            <p id="modal-cover-path" class="text-coffee-300 bg-coffee-950 p-1.5 border border-coffee-800 text-[10px] break-all font-mono">None</p>
+                        </div>
+
+                        <!-- Art Selection Action Panel -->
+                        <div class="space-y-2 pt-1">
+                            <button onclick="fetchArtCandidates()" class="vintage-button w-full py-2 px-3 text-amber-500 hover:text-amber-400 text-xs font-bold flex items-center justify-center gap-2">
+                                <i data-lucide="image" class="w-4 h-4"></i> Browse & Replace Cover Art (LIST_ART_CANDIDATES)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Candidates Grid Panel (Hidden by default) -->
+                <div id="art-candidates-box" class="hidden border-t border-coffee-800 pt-3 space-y-2">
+                    <p class="text-xs text-amber-500 font-bold flex items-center justify-between">
+                        <span>SELECT NEW COVER ARTWORK:</span>
+                        <span id="candidates-loading" class="text-coffee-400 hidden animate-pulse">Fetching SteamGridDB candidates...</span>
+                    </p>
+                    <div id="art-candidates-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1 bg-coffee-900 border border-coffee-800">
+                        <!-- Rendered candidates -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Dynamic Script -->
+    <script>
+        let loadedGames = [];
+        let loadedConfig = {};
+        let currentActiveFilePath = 'config.json';
+        let libraryViewMode = 'grid';
+        let selectedGameForArt = null;
+
+        const DISC_ICON_SVG = `<svg class="w-10 h-10 text-coffee-600 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke-width="1.5"/></svg>`;
+
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'library', 'storage', 'emulators', 'clients', 'files', 'logs', 'settings', 'themes'];
+            tabs.forEach(id => {
+                const el = document.getElementById(`tab-${id}`);
+                const nav = document.getElementById(`nav-${id}`);
+                if (el) el.classList.add('hidden');
+                if (nav) {
+                    nav.classList.remove('bg-amber-700', 'text-coffee-100', 'border-amber-600', 'shadow-sm');
+                    nav.classList.add('text-coffee-300', 'hover:text-coffee-100', 'hover:bg-coffee-850', 'border-transparent');
+                }
+            });
+
+            const activeTab = document.getElementById(`tab-${tabId}`);
+            const activeNav = document.getElementById(`nav-${tabId}`);
+
+            if (activeTab) activeTab.classList.remove('hidden');
+            if (activeNav) {
+                activeNav.classList.add('bg-amber-700', 'text-coffee-100', 'border-amber-600', 'shadow-sm');
+                activeNav.classList.remove('text-coffee-300', 'hover:text-coffee-100', 'hover:bg-coffee-850', 'border-transparent');
+            }
+
+            const titles = {
+                'dashboard': 'Dashboard Overview',
+                'library': 'Game Library & Artwork',
+                'storage': 'Linux Storage Mount Points',
+                'emulators': 'Emulator Priority Queue',
+                'clients': 'Active Client Connections',
+                'files': 'Server File Browser & Editor',
+                'logs': 'Live Server Log Terminal',
+                'settings': 'Server Config (config.json)',
+                'themes': 'Client Theme Distribution'
+            };
+            document.getElementById('page-title').innerText = titles[tabId] || 'Admin Panel';
+
+            if (tabId === 'files') {
+                loadFileEditor(currentActiveFilePath);
+            }
+        }
+
+        function setLibraryViewMode(mode) {
+            libraryViewMode = mode;
+            const btnGrid = document.getElementById('view-mode-grid');
+            const btnList = document.getElementById('view-mode-list');
+
+            if (mode === 'grid') {
+                btnGrid.className = 'px-3 py-1 bg-amber-700 text-coffee-100 font-bold flex items-center gap-1.5';
+                btnList.className = 'px-3 py-1 text-coffee-400 hover:text-coffee-200 flex items-center gap-1.5';
+            } else {
+                btnList.className = 'px-3 py-1 bg-amber-700 text-coffee-100 font-bold flex items-center gap-1.5';
+                btnGrid.className = 'px-3 py-1 text-coffee-400 hover:text-coffee-200 flex items-center gap-1.5';
+            }
+            renderGamesByConsole(loadedGames);
+        }
+
+        // Formats cover art local file paths or URLs to web-accessible paths
+        function getCoverArtUrl(coverPath) {
+            if (!coverPath) return null;
+            if (coverPath.startsWith('http://') || coverPath.startsWith('https://') || coverPath.startsWith('data:')) {
+                return coverPath;
+            }
+            return `/api/art?path=${encodeURIComponent(coverPath)}`;
+        }
+
+        // FETCH REAL GAMES FROM /api/games
+        function loadGames() {
+            fetch('/api/games')
+                .then(res => res.json())
+                .then(data => {
+                    loadedGames = data.games || [];
+
+                    const countStr = loadedGames.length.toString();
+                    document.getElementById('sidebar-game-count').innerText = countStr;
+                    document.getElementById('dash-game-count').innerText = countStr;
+
+                    const totalBytes = loadedGames.reduce((acc, g) => acc + (g.fileSize || 0), 0);
+                    const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+                    document.getElementById('dash-volume-size').innerText = `${totalGB} GB`;
+
+                    renderGamesByConsole(loadedGames);
+                })
+                .catch(err => console.error('Failed to load games:', err));
+        }
+
+        function renderGamesByConsole(games) {
+            const container = document.getElementById('library-console-folders');
+            if (!container) return;
+
+            if (games.length === 0) {
+                container.innerHTML = `<div class="p-6 vintage-panel text-coffee-400 font-mono-retro text-xs">No games indexed in games.json. Run a RESCAN to discover ROMs.</div>`;
+                return;
+            }
+
+            const grouped = {};
+            games.forEach(g => {
+                const c = g.console || 'OTHER';
+                if (!grouped[c]) grouped[c] = [];
+                grouped[c].push(g);
+            });
+
+            container.innerHTML = '';
+
+            Object.keys(grouped).sort().forEach(consoleCode => {
+                const folderGames = grouped[consoleCode];
+                const folderId = `folder-${consoleCode.toLowerCase()}`;
+
+                const folderPanel = document.createElement('div');
+                folderPanel.className = 'vintage-panel overflow-hidden space-y-2';
+
+                const header = document.createElement('div');
+                header.className = 'p-3 bg-coffee-850 border-b border-coffee-800 flex items-center justify-between cursor-pointer select-none';
+                header.onclick = () => toggleFolder(folderId);
+                header.innerHTML = `
+                    <div class="flex items-center gap-3 font-mono-retro">
+                        <i data-lucide="folder-open" class="w-4 h-4 text-amber-500"></i>
+                        <span class="font-bold text-sm text-coffee-100">${consoleCode} /</span>
+                        <span class="text-xs text-coffee-400">(${folderGames.length} Games)</span>
+                    </div>
+                    <span class="text-xs font-mono-retro bg-coffee-950 px-2 py-0.5 border border-coffee-700 text-amber-500 font-bold">${folderGames.length} ENTRIES</span>
+                `;
+                folderPanel.appendChild(header);
+
+                const contentBox = document.createElement('div');
+                contentBox.id = folderId;
+
+                if (libraryViewMode === 'grid') {
+                    contentBox.className = 'p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4';
+                    folderGames.forEach(g => {
+                        const artUrl = getCoverArtUrl(g.coverArt);
+                        const card = document.createElement('div');
+                        card.className = 'bg-coffee-950 border border-coffee-800 hover:border-amber-600 group cursor-pointer transition-all flex flex-col justify-between overflow-hidden relative';
+                        card.onclick = () => openClientPreview(g);
+
+                        const imageBox = document.createElement('div');
+                        imageBox.className = 'w-full aspect-[3/4] bg-coffee-900 relative overflow-hidden flex items-center justify-center text-amber-500';
+
+                        if (artUrl) {
+                            const img = document.createElement('img');
+                            img.src = artUrl;
+                            img.className = 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-300';
+                            img.onerror = () => {
+                                imageBox.innerHTML = DISC_ICON_SVG;
+                            };
+                            imageBox.innerHTML = '';
+                            imageBox.appendChild(img);
+                        } else {
+                            imageBox.innerHTML = DISC_ICON_SVG;
+                        }
+
+                        card.appendChild(imageBox);
+
+                        const caption = document.createElement('div');
+                        caption.className = 'p-2.5 bg-coffee-900 border-t border-coffee-850 space-y-1 font-mono-retro';
+                        caption.innerHTML = `
+                            <p class="font-bold text-xs text-coffee-100 truncate">${g.commonName || g.gameName || 'Untitled'}</p>
+                            <div class="flex justify-between items-center text-[10px] text-coffee-400">
+                                <span class="bg-coffee-950 px-1 py-0.5 border border-coffee-800 text-amber-500 font-bold">${g.console}</span>
+                                <span>${g.preferredMetadataProvider || 'SGDB'}</span>
+                            </div>
+                        `;
+                        card.appendChild(caption);
+                        contentBox.appendChild(card);
+                    });
+                } else {
+                    contentBox.className = 'divide-y divide-coffee-850';
+                    folderGames.forEach(g => {
+                        const artUrl = getCoverArtUrl(g.coverArt);
+                        const row = document.createElement('div');
+                        row.className = 'p-3 bg-coffee-900/60 hover:bg-coffee-850 flex items-center justify-between text-xs font-mono-retro';
+
+                        const leftCol = document.createElement('div');
+                        leftCol.className = 'flex items-center gap-3';
+
+                        const thumbBox = document.createElement('div');
+                        thumbBox.className = 'w-10 h-12 bg-coffee-950 border border-coffee-700 flex items-center justify-center text-[9px] text-amber-500 font-bold overflow-hidden shrink-0';
+
+                        if (artUrl) {
+                            const img = document.createElement('img');
+                            img.src = artUrl;
+                            img.className = 'w-full h-full object-cover';
+                            img.onerror = () => {
+                                thumbBox.innerText = g.console || 'ROM';
+                            };
+                            thumbBox.appendChild(img);
+                        } else {
+                            thumbBox.innerText = g.console || 'ROM';
+                        }
+
+                        const textMeta = document.createElement('div');
+                        textMeta.innerHTML = `
+                            <p class="font-bold text-coffee-100">${g.commonName || g.gameName}</p>
+                            <p class="text-[11px] text-coffee-400">Location: <span class="text-coffee-300">${g.fileLocation || 'N/A'}</span></p>
+                        `;
+
+                        leftCol.appendChild(thumbBox);
+                        leftCol.appendChild(textMeta);
+
+                        const rightCol = document.createElement('div');
+                        rightCol.className = 'flex items-center gap-3';
+
+                        const inspectBtn = document.createElement('button');
+                        inspectBtn.className = 'vintage-button px-2.5 py-1 text-amber-500 text-[11px] hover:text-amber-400 flex items-center gap-1';
+                        inspectBtn.onclick = () => openClientPreview(g);
+                        inspectBtn.innerHTML = `<i data-lucide="eye" class="w-3.5 h-3.5"></i> Inspect / Cover`;
+
+                        rightCol.appendChild(inspectBtn);
+
+                        row.appendChild(leftCol);
+                        row.appendChild(rightCol);
+                        contentBox.appendChild(row);
+                    });
+                }
+
+                folderPanel.appendChild(contentBox);
+                container.appendChild(folderPanel);
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function filterGamesList() {
+            const query = document.getElementById('library-search-input').value.toLowerCase();
+            const filtered = loadedGames.filter(g =>
+                (g.commonName && g.commonName.toLowerCase().includes(query)) ||
+                (g.gameName && g.gameName.toLowerCase().includes(query)) ||
+                (g.console && g.console.toLowerCase().includes(query)) ||
+                (g.fileLocation && g.fileLocation.toLowerCase().includes(query))
+            );
+            renderGamesByConsole(filtered);
+        }
+
+        function refreshClients() {
+            fetch('/api/clients')
+                .then(res => res.json())
+                .then(clientsMap => {
+                    const clientIds = Object.keys(clientsMap);
+                    const countStr = `${clientIds.length} Connections`;
+
+                    document.querySelectorAll('[data-live-client-count]').forEach(el => el.innerText = countStr);
+                    const clientsTabCount = document.getElementById('clients-tab-count');
+                    if (clientsTabCount) clientsTabCount.innerText = `${clientIds.length} Connections Online`;
+                    const dashClientCount = document.getElementById('dash-client-count');
+                    if (dashClientCount) dashClientCount.innerText = `${clientIds.length} Clients`;
+
+                    const grid = document.getElementById('clients-grid');
+                    if (!grid) return;
+
+                    if (clientIds.length === 0) {
+                        grid.innerHTML = `<div class="col-span-3 p-6 vintage-panel text-coffee-400 text-xs font-mono-retro">No active clients connected to the server.</div>`;
+                        return;
+                    }
+
+                    grid.innerHTML = '';
+                    clientIds.forEach(id => {
+                        const task = clientsMap[id];
+                        const card = document.createElement('div');
+                        card.className = 'p-4 bg-coffee-950 border border-coffee-800 space-y-2 font-mono-retro text-xs';
+                        card.innerHTML = `
+                            <div class="flex items-center justify-between border-b border-coffee-900 pb-2">
+                                <span class="font-bold text-amber-500">${id}</span>
+                                <span class="text-emerald-400 text-[10px]">CONNECTED</span>
+                            </div>
+                            <p class="text-coffee-300 font-bold pt-1">CURRENT TASK:</p>
+                            <p class="text-amber-400 bg-coffee-900 p-2 border border-coffee-850 text-[11px] overflow-hidden text-ellipsis">${task}</p>
+                            <button onclick="kickClient('${id}')" class="w-full mt-1 bg-red-900/40 hover:bg-red-800 border border-red-800 text-red-300 hover:text-red-100 text-[11px] py-1.5 flex items-center justify-center gap-1.5 transition-colors">
+                                <i data-lucide="power-off" class="w-3.5 h-3.5"></i> Kick Client (KICK_CLIENT)
+                            </button>
+                        `;
+                        grid.appendChild(card);
+                    });
+
+                    if (window.lucide) lucide.createIcons();
+                })
+                .catch(err => console.error('Failed to refresh clients:', err));
+        }
+
+        function kickClient(clientId) {
+            executeAdminCommand('KICK_CLIENT', { clientId: clientId }, (res) => {
+                alert(res.message || 'Client kicked');
+                refreshClients();
+            });
+        }
+
+        function executeAdminCommand(commandName, params, callback) {
+            fetch('/api/admin/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    command: commandName,
+                    params: params || {}
+                })
+            })
+            .then(async res => {
+                const text = await res.text();
+                let data;
+                try {
+                    const firstBrace = text.indexOf('{');
+                    const lastBrace = text.lastIndexOf('}');
+                    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+                        data = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+                    } else {
+                        data = { success: res.ok, message: text };
+                    }
+                } catch (e) {
+                    data = { success: false, message: text || 'Invalid response format' };
+                }
+                return data;
+            })
+            .then(data => {
+                if (data.success === false) {
+                    console.warn(`Admin command ${commandName} notice:`, data.message);
+                }
+                if (callback) callback(data);
+                loadLogs();
+            })
+            .catch(err => {
+                console.error(`Admin command ${commandName} failed:`, err);
+                alert(`Error running command ${commandName}: ` + err);
+            });
+        }
+
+        function pushThemeToClients() {
+            const cssUrl = document.getElementById('theme-css-url').value;
+            const inlineCss = document.getElementById('theme-inline-css').value;
+            const force = document.getElementById('theme-force-push').checked;
+
+            executeAdminCommand('PUSH_THEME', {
+                cssUrl: cssUrl,
+                inlineCss: inlineCss,
+                force: force.toString()
+            }, (res) => {
+                alert(res.message || 'Theme push command executed.');
+            });
+        }
+
+        function loadConfig() {
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(config => {
+                    loadedConfig = config;
+
+                    if (config.port) {
+                        document.getElementById('cfg-port').value = config.port;
+                        document.getElementById('dash-port-display').innerText = config.port;
+                    }
+                    if (config.gamesDirectory) {
+                        document.getElementById('cfg-gamesDir').value = config.gamesDirectory;
+                        renderStorageMounts(config.gamesDirectory);
+                    }
+                    if (config.defaultMetadataProvider) {
+                        document.getElementById('cfg-defaultProvider').value = config.defaultMetadataProvider;
+                        document.getElementById('sidebar-provider-name').innerText = config.defaultMetadataProvider;
+                    }
+                    if (config.useHttps !== undefined) {
+                        document.getElementById('cfg-useHttps').checked = config.useHttps;
+                    }
+                    if (config.apiKeys) {
+                        if (config.apiKeys.STEAMGRIDDB) document.getElementById('cfg-sgdbKey').value = config.apiKeys.STEAMGRIDDB;
+                        if (config.apiKeys.THEGAMESDB) document.getElementById('cfg-tgdbKey').value = config.apiKeys.THEGAMESDB;
+                    }
+                })
+                .catch(err => console.error('Failed to fetch config:', err));
+        }
+
+        function renderStorageMounts(gamesDir) {
+            const container = document.getElementById('storage-mounts-list');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="p-4 bg-coffee-950 border border-coffee-800 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="hard-drive" class="w-5 h-5 text-amber-500"></i>
+                        <div>
+                            <p class="font-bold text-coffee-100">./${gamesDir}/</p>
+                            <p class="text-coffee-500 text-[11px]">Primary ROM Directory</p>
+                        </div>
+                    </div>
+                    <span class="bg-coffee-900 border border-coffee-700 text-emerald-400 px-2 py-1">Active Index</span>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function saveSettingsConfig() {
+            const updated = {
+                ...loadedConfig,
+                port: parseInt(document.getElementById('cfg-port').value) || 8080,
+                gamesDirectory: document.getElementById('cfg-gamesDir').value || "games",
+                defaultMetadataProvider: document.getElementById('cfg-defaultProvider').value,
+                useHttps: document.getElementById('cfg-useHttps').checked,
+                apiKeys: {
+                    ...loadedConfig.apiKeys,
+                    STEAMGRIDDB: document.getElementById('cfg-sgdbKey').value,
+                    THEGAMESDB: document.getElementById('cfg-tgdbKey').value
+                }
+            };
+
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated)
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || 'config.json updated successfully!');
+                loadConfig();
+            })
+            .catch(err => alert('Failed to save config: ' + err));
+        }
+
+        function loadLogs() {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const logs = data.logs || [];
+                    const fullTerm = document.getElementById('full-log-terminal');
+                    const dashFeed = document.getElementById('dashboard-log-feed');
+
+                    if (fullTerm) {
+                        fullTerm.innerHTML = logs.length === 0
+                            ? `<p class="text-coffee-500">// Log buffer empty.</p>`
+                            : logs.map(l => `<p class="text-coffee-300 font-mono-retro">${escapeHtml(l)}</p>`).join('');
+                        fullTerm.scrollTop = fullTerm.scrollHeight;
+                    }
+
+                    if (dashFeed) {
+                        const recent = logs.slice(-6).reverse();
+                        dashFeed.innerHTML = recent.length === 0
+                            ? `<div class="text-coffee-500 text-xs">No recent log entries.</div>`
+                            : recent.map(l => `<div class="border-b border-coffee-900 pb-1 text-coffee-300 text-[11px] font-mono-retro">${escapeHtml(l)}</div>`).join('');
+                    }
+                })
+                .catch(err => console.error('Error fetching logs:', err));
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function clearLogConsole() {
+            document.getElementById('full-log-terminal').innerHTML = `<p class="text-coffee-500">// Terminal cleared locally.</p>`;
+        }
+
+        function loadFileEditor(path) {
+            currentActiveFilePath = path;
+            document.querySelectorAll('.file-select-btn').forEach(btn => {
+                btn.classList.remove('bg-coffee-850', 'text-amber-400', 'border', 'border-coffee-700');
+                btn.classList.add('text-coffee-300');
+            });
+
+            document.getElementById('current-filename').innerText = path;
+
+            fetch(`/api/files/read?path=${encodeURIComponent(path)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('file-editor-text').value = `// ${data.error}`;
+                    } else {
+                        document.getElementById('file-editor-text').value = data.content || '';
+                        document.getElementById('editor-file-info').innerText = `${path} • UTF-8 • ${data.bytes || 0} Bytes`;
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('file-editor-text').value = `// Could not read file: ${err}`;
+                });
+        }
+
+        function saveCurrentFile() {
+            const content = document.getElementById('file-editor-text').value;
+            fetch(`/api/files/save?path=${encodeURIComponent(currentActiveFilePath)}`, {
+                method: 'POST',
+                body: content
+            })
+            .then(res => res.json())
+            .then(data => {
+                const toast = document.getElementById('save-status-toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2500);
+            })
+            .catch(err => alert('Error saving file: ' + err));
+        }
+
+        function triggerRescan() {
+            const btn = document.getElementById('rescan-btn');
+            btn.classList.add('opacity-50', 'pointer-events-none');
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> RESCANNING...`;
+            if (window.lucide) lucide.createIcons();
+
+            executeAdminCommand('RESCAN_LIBRARY', {}, (data) => {
+                alert(data.message || 'Rescan completed!');
+                loadGames();
+                loadLogs();
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+                btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> RESCAN games.json`;
+                if (window.lucide) lucide.createIcons();
+            });
+        }
+
+        function toggleFolder(folderId) {
+            const folder = document.getElementById(folderId);
+            if (folder) folder.classList.toggle('hidden');
+        }
+
+        function openClientPreview(game) {
+            selectedGameForArt = game;
+            document.getElementById('modal-title').innerText = game.commonName || game.gameName || 'Game Title';
+            document.getElementById('modal-console').innerText = game.console || 'ROM';
+            document.getElementById('modal-file-location').innerText = game.fileLocation || 'N/A';
+            document.getElementById('modal-provider').innerText = game.preferredMetadataProvider || 'STEAMGRIDDB';
+            document.getElementById('modal-cover-path').innerText = game.coverArt || 'None Set';
+
+            const coverImg = document.getElementById('modal-cover-img');
+            const coverFallback = document.getElementById('modal-cover-fallback');
+            document.getElementById('art-candidates-box').classList.add('hidden');
+
+            const artUrl = getCoverArtUrl(game.coverArt);
+            if (artUrl) {
+                coverImg.src = artUrl;
+                coverImg.classList.remove('hidden');
+                coverFallback.classList.add('hidden');
+                coverImg.onerror = () => {
+                    coverImg.classList.add('hidden');
+                    coverFallback.classList.remove('hidden');
+                };
+            } else {
+                coverImg.classList.add('hidden');
+                coverFallback.classList.remove('hidden');
+            }
+
+            document.getElementById('preview-modal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function fetchArtCandidates() {
+            if (!selectedGameForArt) return;
+            const candidatesBox = document.getElementById('art-candidates-box');
+            const grid = document.getElementById('art-candidates-grid');
+            const loader = document.getElementById('candidates-loading');
+
+            candidatesBox.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            grid.innerHTML = '';
+
+            executeAdminCommand('LIST_ART_CANDIDATES', {
+                gameTitle: selectedGameForArt.commonName || selectedGameForArt.gameName,
+                console: selectedGameForArt.console
+            }, (res) => {
+                loader.classList.add('hidden');
+                const candidates = res.candidates || [];
+
+                if (candidates.length === 0) {
+                    grid.innerHTML = `<p class="col-span-4 text-coffee-400 text-xs p-2">${res.message || 'No artwork candidates found for this title.'}</p>`;
+                    return;
+                }
+
+                candidates.forEach(cand => {
+                    const url = cand.url || cand;
+                    const card = document.createElement('div');
+                    card.className = 'bg-coffee-950 border border-coffee-700 hover:border-amber-500 p-1 cursor-pointer group flex flex-col justify-between';
+                    card.onclick = () => selectAndSetCoverArt(url);
+                    card.innerHTML = `
+                        <div class="aspect-[3/4] bg-coffee-900 overflow-hidden relative">
+                            <img src="${url}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        </div>
+                        <p class="text-[9px] text-amber-500 font-bold truncate pt-1 text-center">Set Cover</p>
+                    `;
+                    grid.appendChild(card);
+                });
+            });
+        }
+
+        function selectAndSetCoverArt(artUrl) {
+            if (!selectedGameForArt) return;
+
+            executeAdminCommand('SET_COVER_ART', {
+                gameLocation: selectedGameForArt.fileLocation,
+                artUrl: artUrl
+            }, (res) => {
+                alert(res.message || 'Cover art updated successfully!');
+                selectedGameForArt.coverArt = artUrl;
+                document.getElementById('modal-cover-path').innerText = artUrl;
+
+                const coverImg = document.getElementById('modal-cover-img');
+                coverImg.src = getCoverArtUrl(artUrl);
+                coverImg.classList.remove('hidden');
+                document.getElementById('modal-cover-fallback').classList.add('hidden');
+
+                loadGames();
+            });
+        }
+
+        function closeClientPreview() {
+            document.getElementById('preview-modal').classList.add('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            loadGames();
+            refreshClients();
+            loadConfig();
+            loadLogs();
+
+            setInterval(refreshClients, 5000);
+            setInterval(loadLogs, 6000);
+        });
+    </script>
+</body>
+</html>

@@ -11,4 +11,5 @@ public class ServerConfig {
     public String defaultMetadataProvider;
     public Map<String, String> apiKeys;
     public String pathToHttpsCredentials;
+    public String keystorePassword;
 }

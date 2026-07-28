@@ -1,6 +1,7 @@
 *.class
 lib/
 config.json
+games/
 
 # Ignore Gradle project-specific cache directory
 .gradle
