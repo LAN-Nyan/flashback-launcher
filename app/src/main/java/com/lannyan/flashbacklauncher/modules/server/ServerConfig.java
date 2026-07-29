@@ -13,4 +13,5 @@ public class ServerConfig {
     public String pathToHttpsCredentials;
     public String keystorePassword;
     public Integer threadPoolSize;
+
 }
