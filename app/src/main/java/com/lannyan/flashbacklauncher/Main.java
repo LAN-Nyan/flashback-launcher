@@ -10,6 +10,7 @@ package com.lannyan.flashbacklauncher;
 
 import com.lannyan.flashbacklauncher.modules.server.ServerCommands;
 import java.util.Scanner;
+import com.lannyan.flashbacklauncher.modules.server.AppPaths;
 
 public class Main {
     public static void main(String[] args) {
