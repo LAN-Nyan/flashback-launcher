@@ -28,4 +28,7 @@ public class EmulatorRegistry {
     public static String getEmulatorFor(String consoleCode) {
         return emulatorMap.getOrDefault(consoleCode, null);
     }
+    public static Map<String, String> getAllMappings() {
+        return emulatorMap;
+    } // wait this is SOOOO the wrong place!
 }

@@ -124,4 +124,37 @@ public class SteamGridDbProvider implements MetadataProvider {
         Files.write(outFile.toPath(), response.body());
         return outFile;
     }
+    public void fetchBanner(GameEntry game, File gameDataDir) {
+        if (game.banner != null && new File(game.banner).exists()) {
+            System.out.println("Banner already exists for " + game.commonName + ", skipping...");
+            return;
+        }
+
+        String id = game.providerIds != null ? game.providerIds.get("STEAMGRIDDB") : null;
+        if (id == null) return;
+
+        try {
+            String url = "https://www.steamgriddb.com/api/v2/heroes/game/" + id;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .GET()
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            SteamGridDbGridResult result = new Gson().fromJson(response.body(), SteamGridDbGridResult.class);
+            if (result == null || !result.success || result.data.isEmpty()) {
+                System.out.println("No banner images found for " + game.commonName);
+                return;
+            }
+
+            SteamGridDbGridImage image = result.data.get(0);
+            File savedFile = downloadImage(image.url, gameDataDir, "banner");
+            game.banner = savedFile.getAbsolutePath();
+            System.out.println("Saved banner for " + game.commonName + " -> " + savedFile.getName());
+
+        } catch (Exception e) {
+            System.out.println("Failed to fetch banner for " + game.commonName + ": " + e.getMessage());
+        }
+    }
 }

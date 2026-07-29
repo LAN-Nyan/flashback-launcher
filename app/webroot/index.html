@@ -742,7 +742,7 @@
             if (coverPath.startsWith('http://') || coverPath.startsWith('https://') || coverPath.startsWith('data:')) {
                 return coverPath;
             }
-            return `/api/art?path=${encodeURIComponent(coverPath)}`;
+            return `/api/art?path=${encodeURIComponent(coverPath)}&adminToken=${encodeURIComponent(adminToken)}`;
         }
 
         // FETCH REAL GAMES FROM /api/games

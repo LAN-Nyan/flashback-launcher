@@ -1,9 +1,13 @@
 package com.lannyan.flashbacklauncher.modules.managers;
 
+
+import com.lannyan.flashbacklauncher.modules.server.AdminSession;
 import com.lannyan.flashbacklauncher.modules.server.ServerConfig;
 import com.lannyan.flashbacklauncher.modules.server.GameLibrary;
 import com.lannyan.flashbacklauncher.modules.server.ServerCommands;
 import com.lannyan.flashbacklauncher.modules.server.AppPaths;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.io.File;
 import java.util.concurrent.Executors;
 import java.io.RandomAccessFile;
@@ -13,6 +17,7 @@ import com.google.gson.GsonBuilder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.io.FileOutputStream;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,9 +57,11 @@ import java.util.stream.Stream;
  * live log buffering, client connection tracking, and configuration APIs.
  */
 public class NetworkManager {
-
+    // NO I HAVENT BROKEN camelCase
+    private static final long SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes I THINK its fine here... This language has a garbage collector right?
     private static final String ADMIN_WEBROOT = "webroot";
     private static final Map<String, ClientSession> activeSessions = new ConcurrentHashMap<>();
+    private static final Map<String, AdminSession> adminSessions = new ConcurrentHashMap<>();
     private static final List<String> logEntries = Collections.synchronizedList(new ArrayList<>());
     private static final DateTimeFormatter LOG_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -127,11 +134,13 @@ public class NetworkManager {
                 server.createContext("/api/admin/command", withCors(NetworkManager::handleAdminCommand));
                 server.createContext("/api/client/save/upload", withCors(NetworkManager::handleSaveUpload));
                 server.createContext("/api/client/save/download", withCors(NetworkManager::handleSaveDownload));
+                server.createContext("/api/emulators", withCors(NetworkManager::handleEmulators)); // Is this constructor getting big? Erm... Who cares!
 
          int poolSize = (config.threadPoolSize != null && config.threadPoolSize > 0)
                    ? config.threadPoolSize
                  : Runtime.getRuntime().availableProcessors();
 
+        startSessionCleanupTask(); // Major if here but i think that'll work!
         server.setExecutor(Executors.newFixedThreadPool(poolSize));
         System.out.println("Using thread pool size: " + poolSize);
         server.start();
@@ -242,7 +251,7 @@ public class NetworkManager {
             return;
         }
 
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String clientId = parseQueryParam(query, "clientId");
         if (clientId == null || clientId.isBlank()) {
             clientId = parseQueryParam(query, "id");
@@ -268,20 +277,22 @@ public class NetworkManager {
 
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, String> req = new Gson().fromJson(body, Map.class);
-
         String username = req.get("username");
         String password = req.get("password");
 
         User user = UserManager.authenticate(username, password);
-
-        // Verify user exists and has admin privileges
         if (user == null || !user.isAdmin) {
             writeJsonError(exchange, "Invalid credentials or not an admin account.");
             return;
         }
 
-        // Generate token and session
         String token = UUID.randomUUID().toString();
+
+        AdminSession session = new AdminSession();
+        session.token = token;
+        session.username = user.username;
+        session.lastActivity = System.currentTimeMillis();
+        adminSessions.put(token, session);   // <-- this line was missing entirely
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
@@ -326,7 +337,7 @@ public class NetworkManager {
     }
 
     private static void handleFileRead(HttpExchange exchange) throws IOException {
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String relativePath = parseQueryParam(query, "path");
 
         if (relativePath == null || relativePath.isBlank()) {
@@ -362,7 +373,7 @@ public class NetworkManager {
             return;
         }
 
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String relativePath = parseQueryParam(query, "path");
 
         if (relativePath == null || relativePath.isBlank()) {
@@ -396,7 +407,7 @@ public class NetworkManager {
         for (String pair : query.split("&")) {
             String[] parts = pair.split("=", 2);
             if (parts.length == 2 && parts[0].equals(key)) {
-                return parts[1];
+                return java.net.URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
             }
         }
         return null;
@@ -524,7 +535,7 @@ public class NetworkManager {
         writeJson(exchange, Map.of("success", true));
     }
     private static void handleClientDownload(HttpExchange exchange) throws IOException {
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String clientId = parseQueryParam(query, "clientId");
         String token = parseQueryParam(query, "token");
         String requestedPath = parseQueryParam(query, "path");
@@ -620,11 +631,39 @@ public class NetworkManager {
         };
     }
     private static void handleArtFile(HttpExchange exchange) throws IOException {
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String path = parseQueryParam(query, "path");
+        String adminToken = parseQueryParam(query, "adminToken");
+        String clientId = parseQueryParam(query, "clientId");
+        String clientToken = parseQueryParam(query, "token");
+
+        boolean authorized =
+                (adminToken != null && adminSessions.containsKey(adminToken)) ||
+                (clientId != null && authenticateClient(clientId, clientToken));
+
+        if (!authorized) {
+            exchange.sendResponseHeaders(401, -1);
+            exchange.close();
+            return;
+        }
 
         if (path == null || path.isBlank()) {
             writeJsonError(exchange, "Missing 'path' query parameter.");
+            return;
+        }
+        List<GameEntry> games = ServerCommands.loadGamesList();
+
+            // System.out.println("Requested path length=" + path.length() + ": [" + path + "]");
+            // for (GameEntry g : games) {
+            //     if (g.coverArt != null) {
+            //         System.out.println("Known coverArt length=" + g.coverArt.length() + ": [" + g.coverArt + "]");
+            //     }
+            // }
+
+        boolean isKnownArt = games.stream().anyMatch(g -> path.equals(g.coverArt) || path.equals(g.banner)); // Basically i added the banner thingyyyyy
+        if (!isKnownArt) {
+            exchange.sendResponseHeaders(403, -1);
+            exchange.close();
             return;
         }
 
@@ -643,6 +682,8 @@ public class NetworkManager {
             os.write(bytes);
         }
     }
+
+
     private static void handleAdminCommand(HttpExchange exchange) throws IOException {
         if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(405, -1);
@@ -676,7 +717,7 @@ public class NetworkManager {
             return;
         }
 
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String clientId = parseQueryParam(query, "clientId");
         String token = parseQueryParam(query, "token");
         String gameLocation = parseQueryParam(query, "gameLocation");
@@ -706,7 +747,7 @@ public class NetworkManager {
     }
 
     private static void handleSaveDownload(HttpExchange exchange) throws IOException {
-        String query = exchange.getRequestURI().getQuery();
+        String query = exchange.getRequestURI().getRawQuery();
         String clientId = parseQueryParam(query, "clientId");
         String token = parseQueryParam(query, "token");
         String gameLocation = parseQueryParam(query, "gameLocation");
@@ -734,9 +775,44 @@ public class NetworkManager {
 
         streamFileWithRangeSupport(exchange, saveZip); // reuse the same method from the game download endpoint
     }
+
     private static GameEntry findGameByLocation(String location) {
         if (location == null) return null;
         List<GameEntry> games = ServerCommands.loadGamesList();
         return games.stream().filter(g -> location.equals(g.fileLocation)).findFirst().orElse(null);
     }
-}
+    // I weeeeellllyyyy nnnnneeeeeddddeeeddd thiiiiiisssss to work!
+    // the code: "No, i won't"
+    // me: "fuck you too"
+    private static void handleEmulators(HttpExchange exchange) throws IOException {
+        writeJson(exchange, EmulatorRegistry.getAllMappings());
+    }
+
+
+    private static void startSessionCleanupTask() {
+        Timer timer = new Timer(true); // daemon thread, won't block JVM shutdown
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+
+                activeSessions.entrySet().removeIf(entry -> {
+                    boolean expired = (now - entry.getValue().lastHeartbeat) > SESSION_TIMEOUT_MS;
+                    if (expired) log("INFO", "Expired client session: " + entry.getKey());
+                    return expired;
+                });
+
+                adminSessions.entrySet().removeIf(entry -> {
+                    boolean expired = (now - entry.getValue().lastActivity) > SESSION_TIMEOUT_MS;
+                    if (expired) log("INFO", "Expired admin session: " + entry.getKey());
+                    return expired;
+                });
+            }
+        }, SESSION_TIMEOUT_MS, SESSION_TIMEOUT_MS); // first run after one interval, then repeat
+    }
+
+
+
+
+
+    }

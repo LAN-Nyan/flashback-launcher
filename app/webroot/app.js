@@ -33,4 +33,12 @@ async function adminLogin() {
     } catch (err) {
         statusEl.innerText = 'Could not reach server.';
     }
+
+}
+function getCoverArtUrl(coverPath) {
+    if (!coverPath) return null;
+    if (coverPath.startsWith('http://') || coverPath.startsWith('https://') || coverPath.startsWith('data:')) {
+        return coverPath;
+    }
+    return `/api/art?path=${encodeURIComponent(coverPath)}&adminToken=${encodeURIComponent(adminToken)}`;
 }

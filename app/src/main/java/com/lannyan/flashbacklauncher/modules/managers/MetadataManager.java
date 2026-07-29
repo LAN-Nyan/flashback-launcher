@@ -21,6 +21,11 @@ public class MetadataManager {
                 File gameDataDir = FileManager.getGameDataDir(game, config);
                 sgdb.fetchArt(game, gameDataDir);
             }
+            if (provider instanceof SteamGridDbProvider sgdb) {
+                File gameDataDir = FileManager.getGameDataDir(game, config);
+                sgdb.fetchArt(game, gameDataDir);
+                sgdb.fetchBanner(game, gameDataDir);
+            }
         }
         System.out.println("Metadata is up to date.");
     }
@@ -37,4 +42,5 @@ public class MetadataManager {
 
         }
     }
+
 }
